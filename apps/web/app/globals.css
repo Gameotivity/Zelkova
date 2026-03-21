@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #06080E;
+  --bg-card: #0F1629;
+  --bg-elevated: #1A2340;
+  --border-default: #1E293B;
+  --border-subtle: #334155;
+  --text-primary: #F8FAFC;
+  --text-body: #E2E8F0;
+  --text-muted: #94A3B8;
+  --text-disabled: #475569;
+  --accent-primary: #00E5FF;
+  --accent-secondary: #8B5CF6;
+  --success: #10B981;
+  --danger: #F43F5E;
+  --warning: #F59E0B;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-body);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-subtle);
+}
+
+/* Tabular numbers for prices/values */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
