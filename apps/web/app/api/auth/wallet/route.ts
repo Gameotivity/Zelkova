@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, isDbAvailable } from "@/lib/db";
 import {
   users,
   userProfiles,
@@ -9,6 +9,23 @@ import {
 import { eq, lt } from "drizzle-orm";
 import { z } from "zod";
 import crypto from "crypto";
+
+// ---------------------------------------------------------------------------
+// In-memory nonce store (fallback when DB is unavailable in local dev)
+// ---------------------------------------------------------------------------
+
+const memoryNonces = new Map<string, { nonce: string; message: string; expiresAt: Date }>();
+
+function cleanExpiredMemoryNonces() {
+  const now = new Date();
+  for (const [key, val] of memoryNonces) {
+    if (val.expiresAt < now) memoryNonces.delete(key);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Schemas
+// ---------------------------------------------------------------------------
 
 const nonceSchema = z.object({
   action: z.literal("nonce"),
@@ -41,6 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+    const dbReady = await isDbAvailable();
 
     if (data.action === "nonce") {
       const nonce = crypto.randomBytes(32).toString("hex");
@@ -57,21 +75,26 @@ export async function POST(req: NextRequest) {
         `Issued At: ${new Date().toISOString()}`,
       ].join("\n");
 
-      // Clean old nonces for this address + expired
-      await db.delete(walletNonces).where(
-        eq(walletNonces.address, address)
-      ).catch(() => { /* ignore if table doesn't exist yet */ });
-      await db.delete(walletNonces).where(
-        lt(walletNonces.expiresAt, new Date())
-      ).catch(() => { /* ignore */ });
+      if (dbReady) {
+        // Store nonce in DB
+        await db.delete(walletNonces).where(
+          eq(walletNonces.address, address)
+        ).catch(() => {});
+        await db.delete(walletNonces).where(
+          lt(walletNonces.expiresAt, new Date())
+        ).catch(() => {});
 
-      // Store nonce in DB (persists across serverless invocations)
-      await db.insert(walletNonces).values({
-        address,
-        nonce,
-        message,
-        expiresAt,
-      });
+        await db.insert(walletNonces).values({
+          address,
+          nonce,
+          message,
+          expiresAt,
+        });
+      } else {
+        // Fallback: in-memory nonce
+        cleanExpiredMemoryNonces();
+        memoryNonces.set(address, { nonce, message, expiresAt });
+      }
 
       return NextResponse.json({ message, nonce });
     }
@@ -79,33 +102,78 @@ export async function POST(req: NextRequest) {
     if (data.action === "verify") {
       const address = data.address.toLowerCase();
 
-      // Look up nonce from DB
-      const [stored] = await db
-        .select()
-        .from(walletNonces)
-        .where(eq(walletNonces.address, address))
-        .limit(1);
+      // Look up nonce
+      let storedNonce: string | undefined;
 
-      if (!stored || stored.expiresAt < new Date()) {
-        return NextResponse.json(
-          { error: "Nonce expired. Please try again." },
-          { status: 401 }
-        );
+      if (dbReady) {
+        const [stored] = await db
+          .select()
+          .from(walletNonces)
+          .where(eq(walletNonces.address, address))
+          .limit(1);
+
+        if (!stored || stored.expiresAt < new Date()) {
+          return NextResponse.json(
+            { error: "Nonce expired. Please try again." },
+            { status: 401 }
+          );
+        }
+
+        storedNonce = stored.nonce;
+
+        // Clean up used nonce
+        await db.delete(walletNonces).where(
+          eq(walletNonces.address, address)
+        ).catch(() => {});
+      } else {
+        // Fallback: in-memory
+        const mem = memoryNonces.get(address);
+        if (!mem || mem.expiresAt < new Date()) {
+          return NextResponse.json(
+            { error: "Nonce expired. Please try again." },
+            { status: 401 }
+          );
+        }
+        storedNonce = mem.nonce;
+        memoryNonces.delete(address);
       }
 
-      if (!data.message.includes(stored.nonce)) {
+      if (!data.message.includes(storedNonce)) {
         return NextResponse.json(
           { error: "Invalid nonce in message" },
           { status: 401 }
         );
       }
 
-      // Clean up used nonce
-      await db.delete(walletNonces).where(
-        eq(walletNonces.address, address)
-      ).catch(() => { /* ignore */ });
+      if (!dbReady) {
+        // No DB — create a local-only session response
+        const sessionToken = crypto.randomBytes(48).toString("hex");
+        const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-      // Find or create user
+        const response = NextResponse.json({
+          success: true,
+          user: {
+            id: crypto.randomUUID(),
+            walletAddress: address,
+            name: `${address.slice(0, 6)}...${address.slice(-4)}`,
+            chainId: data.chainId ?? 42161,
+          },
+          profile: null,
+          sessionToken,
+        });
+
+        response.cookies.set("zelkora-session", sessionToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          expires,
+        });
+
+        return response;
+      }
+
+      // DB available — find or create user
       let [user] = await db
         .select()
         .from(users)
@@ -117,7 +185,7 @@ export async function POST(req: NextRequest) {
           .insert(users)
           .values({
             walletAddress: address,
-            chainId: data.chainId ?? 1,
+            chainId: data.chainId ?? 42161,
             name: `${address.slice(0, 6)}...${address.slice(-4)}`,
           })
           .returning();
