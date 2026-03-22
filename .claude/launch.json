@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "apps/web"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["turbo", "dev", "--filter=@zelkora/web"],
       "port": 3000
     },
     {

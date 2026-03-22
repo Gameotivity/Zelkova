@@ -1,20 +1,11 @@
-export const SUPPORTED_EXCHANGES = ["binance", "bybit"] as const;
-
-export const MAJOR_PAIRS = [
-  "BTC/USDT",
-  "ETH/USDT",
-  "SOL/USDT",
-  "BNB/USDT",
-  "XRP/USDT",
-  "ADA/USDT",
-  "DOGE/USDT",
-  "AVAX/USDT",
-  "DOT/USDT",
-  "MATIC/USDT",
-  "LINK/USDT",
-  "UNI/USDT",
-  "ARB/USDT",
+/** Hyperliquid supported perpetual assets */
+export const HL_SUPPORTED_ASSETS = [
+  "BTC", "ETH", "SOL", "DOGE", "AVAX", "ARB", "OP",
+  "SUI", "APT", "INJ", "SEI", "TIA", "LINK", "WIF",
+  "PEPE", "MATIC", "NEAR", "FTM", "ATOM", "ADA",
 ] as const;
+
+export const HL_PAIRS = HL_SUPPORTED_ASSETS.map((a) => `${a}-USD`) as unknown as readonly string[];
 
 export const CANDLE_INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
 
@@ -25,6 +16,7 @@ export const RISK_LIMITS = {
   MIN_STOP_LOSS_PCT: 0.5,
   MAX_STOP_LOSS_PCT: 50,
   DEFAULT_COOLDOWN_MINUTES: 5,
+  MAX_LEVERAGE: 50,
 } as const;
 
 export const AGENT_LIMITS = {
@@ -51,3 +43,5 @@ export const BRAND = {
     warning: "#F59E0B",
   },
 } as const;
+
+export const BUILDER_FEE_BPS = 5; // 0.05% per trade

@@ -26,12 +26,11 @@ export const riskConfigSchema = z.object({
   maxDailyLossPct: z.number().min(0.5).max(25),
   trailingStop: z.boolean().optional(),
   cooldownMinutes: z.number().min(0).max(1440),
+  maxLeverage: z.number().int().min(1).max(50).default(1),
 });
 
 export const createAgentSchema = z.object({
   name: z.string().min(1).max(100),
-  type: z.enum(["CRYPTO", "POLYMARKET"]),
-  exchange: z.enum(["binance", "bybit"]).optional(),
   pairs: z.array(z.string()).optional(),
   strategy: z.string(),
   strategyConfig: z.record(z.unknown()),
@@ -39,14 +38,6 @@ export const createAgentSchema = z.object({
   mode: z.enum(["PAPER", "LIVE"]),
 });
 
-export const exchangeConnectionSchema = z.object({
-  exchange: z.enum(["binance", "bybit"]),
-  apiKey: z.string().min(1),
-  apiSecret: z.string().min(1),
-  label: z.string().optional(),
-});
-
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateAgentInput = z.infer<typeof createAgentSchema>;
-export type ExchangeConnectionInput = z.infer<typeof exchangeConnectionSchema>;

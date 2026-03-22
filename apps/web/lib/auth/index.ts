@@ -4,12 +4,12 @@ import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, userProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db) as any,
+  adapter: DrizzleAdapter(db) as ReturnType<typeof DrizzleAdapter>,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
@@ -44,8 +44,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           image: user.image,
-          is2FAEnabled: user.is2FAEnabled,
-          subscriptionTier: user.subscriptionTier,
         };
       },
     }),
@@ -54,6 +52,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           Google({
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            allowDangerousEmailAccountLinking: true,
           }),
         ]
       : []),
@@ -62,24 +61,70 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           GitHub({
             clientId: process.env.GITHUB_CLIENT_ID,
             clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+            allowDangerousEmailAccountLinking: true,
           }),
         ]
       : []),
   ],
+  events: {
+    async createUser({ user }) {
+      if (!user.id) return;
+      // Auto-create profile for new users (OAuth sign-ups)
+      const baseUsername = (user.name || user.email?.split("@")[0] || "trader")
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "_")
+        .slice(0, 16);
+      const username = `${baseUsername}_${Math.random().toString(36).slice(2, 6)}`;
+      await db.insert(userProfiles).values({
+        userId: user.id,
+        username,
+        displayName: user.name || undefined,
+        avatarUrl: user.image || undefined,
+      }).onConflictDoNothing();
+    },
+  },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
-        token.is2FAEnabled = (user as any).is2FAEnabled;
-        token.subscriptionTier = (user as any).subscriptionTier;
+      }
+      // Refresh profile data on sign-in or update
+      if (trigger === "signIn" || trigger === "update" || user) {
+        const userId = (token.id || user?.id) as string;
+        if (userId) {
+          const [profile] = await db
+            .select()
+            .from(userProfiles)
+            .where(eq(userProfiles.userId, userId))
+            .limit(1);
+          if (profile) {
+            token.username = profile.username;
+            token.rank = profile.rank;
+          }
+          const [dbUser] = await db
+            .select({
+              is2FAEnabled: users.is2FAEnabled,
+              subscriptionTier: users.subscriptionTier,
+            })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1);
+          if (dbUser) {
+            token.is2FAEnabled = dbUser.is2FAEnabled;
+            token.subscriptionTier = dbUser.subscriptionTier;
+          }
+        }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        (session.user as any).is2FAEnabled = token.is2FAEnabled;
-        (session.user as any).subscriptionTier = token.subscriptionTier;
+        const userExt = session.user as unknown as Record<string, unknown>;
+        userExt.is2FAEnabled = token.is2FAEnabled;
+        userExt.subscriptionTier = token.subscriptionTier;
+        userExt.username = token.username;
+        userExt.rank = token.rank;
       }
       return session;
     },

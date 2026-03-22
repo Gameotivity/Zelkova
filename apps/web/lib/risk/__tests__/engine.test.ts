@@ -19,6 +19,7 @@ const defaultRiskConfig = {
   maxDailyLossPct: 5,
   trailingStop: false,
   cooldownMinutes: 5,
+  maxLeverage: 1,
 };
 
 describe("preTradeCheck", () => {

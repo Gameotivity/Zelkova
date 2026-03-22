@@ -13,8 +13,6 @@ import {
 } from "drizzle-orm/pg-core";
 
 // Enums
-export const exchangeEnum = pgEnum("exchange", ["binance", "bybit"]);
-export const agentTypeEnum = pgEnum("agent_type", ["CRYPTO", "POLYMARKET"]);
 export const agentStatusEnum = pgEnum("agent_status", [
   "DRAFT",
   "PAPER",
@@ -23,7 +21,11 @@ export const agentStatusEnum = pgEnum("agent_status", [
   "STOPPED",
 ]);
 export const orderSideEnum = pgEnum("order_side", ["BUY", "SELL"]);
-export const orderTypeEnum = pgEnum("order_type", ["MARKET", "LIMIT"]);
+export const orderTypeEnum = pgEnum("order_type", [
+  "MARKET",
+  "LIMIT",
+  "TRIGGER",
+]);
 export const tradeStatusEnum = pgEnum("trade_status", [
   "PENDING",
   "FILLED",
@@ -32,6 +34,7 @@ export const tradeStatusEnum = pgEnum("trade_status", [
   "FAILED",
 ]);
 export const positionSideEnum = pgEnum("position_side", ["LONG", "SHORT"]);
+export const marginModeEnum = pgEnum("margin_mode", ["CROSS", "ISOLATED"]);
 export const subscriptionTierEnum = pgEnum("subscription_tier", [
   "FREE",
   "PRO",
@@ -43,12 +46,21 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    email: text("email").notNull().unique(),
-    name: text("name").notNull(),
+    email: text("email").unique(),
+    name: text("name"),
+    walletAddress: text("wallet_address").unique(),
+    chainId: integer("chain_id"),
     passwordHash: text("password_hash"),
     image: text("image"),
     totpSecret: text("totp_secret"),
     is2FAEnabled: boolean("is_2fa_enabled").default(false).notNull(),
+    // Hyperliquid builder fee approval
+    builderFeeApproved: boolean("builder_fee_approved")
+      .default(false)
+      .notNull(),
+    builderApprovedAt: timestamp("builder_approved_at"),
+    builderMaxFeeBps: integer("builder_max_fee_bps"),
+    // Subscription
     subscriptionTier: subscriptionTierEnum("subscription_tier")
       .default("FREE")
       .notNull(),
@@ -56,7 +68,10 @@ export const users = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [index("users_email_idx").on(table.email)]
+  (table) => [
+    index("users_email_idx").on(table.email),
+    index("users_wallet_idx").on(table.walletAddress),
+  ],
 );
 
 // NextAuth accounts (for OAuth)
@@ -81,9 +96,9 @@ export const accounts = pgTable(
   (table) => [
     uniqueIndex("accounts_provider_idx").on(
       table.provider,
-      table.providerAccountId
+      table.providerAccountId,
     ),
-  ]
+  ],
 );
 
 // Sessions
@@ -96,31 +111,7 @@ export const sessions = pgTable("sessions", {
   expires: timestamp("expires").notNull(),
 });
 
-// Exchange Connections
-export const exchangeConnections = pgTable(
-  "exchange_connections",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    exchange: exchangeEnum("exchange").notNull(),
-    label: text("label"),
-    apiKeyEncrypted: text("api_key_encrypted").notNull(),
-    apiSecretEncrypted: text("api_secret_encrypted").notNull(),
-    apiKeyIv: text("api_key_iv").notNull(),
-    apiSecretIv: text("api_secret_iv").notNull(),
-    apiKeyTag: text("api_key_tag").notNull(),
-    apiSecretTag: text("api_secret_tag").notNull(),
-    isActive: boolean("is_active").default(true).notNull(),
-    permissions: jsonb("permissions").$type<string[]>(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (table) => [index("exchange_connections_user_idx").on(table.userId)]
-);
-
-// Agents
+// Agents (Hyperliquid perps)
 export const agents = pgTable(
   "agents",
   {
@@ -129,12 +120,13 @@ export const agents = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    type: agentTypeEnum("type").notNull(),
     status: agentStatusEnum("status").default("DRAFT").notNull(),
-    exchange: exchangeEnum("exchange"),
+    // Trading config
     pairs: jsonb("pairs").$type<string[]>(),
     strategy: text("strategy").notNull(),
     strategyConfig: jsonb("strategy_config").notNull(),
+    defaultLeverage: integer("default_leverage").default(1).notNull(),
+    marginMode: marginModeEnum("margin_mode").default("CROSS").notNull(),
     riskConfig: jsonb("risk_config").$type<{
       stopLossPct: number;
       takeProfitPct?: number;
@@ -142,17 +134,17 @@ export const agents = pgTable(
       maxDailyLossPct: number;
       trailingStop?: boolean;
       cooldownMinutes: number;
+      maxLeverage: number;
     }>(),
-    exchangeConnectionId: uuid("exchange_connection_id").references(
-      () => exchangeConnections.id
-    ),
+    // HL API wallet for automated execution
+    apiWalletAddress: text("api_wallet_address"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     index("agents_user_idx").on(table.userId),
     index("agents_status_idx").on(table.status),
-  ]
+  ],
 );
 
 // Agent Runs
@@ -170,10 +162,10 @@ export const agentRuns = pgTable(
     tradesExecuted: integer("trades_executed").default(0).notNull(),
     pnlUsd: real("pnl_usd").default(0).notNull(),
   },
-  (table) => [index("agent_runs_agent_idx").on(table.agentId)]
+  (table) => [index("agent_runs_agent_idx").on(table.agentId)],
 );
 
-// Trades
+// Trades (Hyperliquid perps)
 export const trades = pgTable(
   "trades",
   {
@@ -184,29 +176,33 @@ export const trades = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    exchange: exchangeEnum("exchange").notNull(),
+    coin: text("coin").notNull(),
     pair: text("pair").notNull(),
     side: orderSideEnum("side").notNull(),
     type: orderTypeEnum("type").notNull(),
     quantity: real("quantity").notNull(),
     price: real("price").notNull(),
+    leverage: integer("leverage").default(1).notNull(),
     fee: real("fee").default(0),
+    builderFee: real("builder_fee").default(0),
     pnl: real("pnl"),
     status: tradeStatusEnum("status").default("PENDING").notNull(),
     isPaper: boolean("is_paper").default(true).notNull(),
-    externalOrderId: text("external_order_id"),
+    // Hyperliquid-specific
+    hlOrderId: text("hl_order_id"),
+    hlCloid: text("hl_cloid"),
     filledAt: timestamp("filled_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("trades_agent_idx").on(table.agentId),
     index("trades_user_idx").on(table.userId),
-    index("trades_pair_idx").on(table.pair),
+    index("trades_coin_idx").on(table.coin),
     index("trades_created_idx").on(table.createdAt),
-  ]
+  ],
 );
 
-// Positions
+// Positions (Hyperliquid perps)
 export const positions = pgTable(
   "positions",
   {
@@ -214,22 +210,28 @@ export const positions = pgTable(
     agentId: uuid("agent_id")
       .notNull()
       .references(() => agents.id, { onDelete: "cascade" }),
+    coin: text("coin").notNull(),
     pair: text("pair").notNull(),
     side: positionSideEnum("side").notNull(),
     entryPrice: real("entry_price").notNull(),
     currentPrice: real("current_price").notNull(),
     quantity: real("quantity").notNull(),
+    leverage: integer("leverage").default(1).notNull(),
+    marginMode: marginModeEnum("margin_mode").default("CROSS").notNull(),
     unrealizedPnl: real("unrealized_pnl").default(0).notNull(),
+    liquidationPrice: real("liquidation_price"),
+    returnOnEquity: real("return_on_equity").default(0),
     stopLoss: real("stop_loss"),
     takeProfit: real("take_profit"),
+    fundingAccrued: real("funding_accrued").default(0),
     isOpen: boolean("is_open").default(true).notNull(),
     openedAt: timestamp("opened_at").defaultNow().notNull(),
     closedAt: timestamp("closed_at"),
   },
   (table) => [
     index("positions_agent_idx").on(table.agentId),
-    index("positions_pair_idx").on(table.pair),
-  ]
+    index("positions_coin_idx").on(table.coin),
+  ],
 );
 
 // Signals
@@ -250,7 +252,7 @@ export const signals = pgTable(
   (table) => [
     index("signals_agent_idx").on(table.agentId),
     index("signals_created_idx").on(table.createdAt),
-  ]
+  ],
 );
 
 // Market Data Candles (TimescaleDB hypertable)
@@ -258,8 +260,7 @@ export const marketDataCandles = pgTable(
   "market_data_candles",
   {
     time: timestamp("time").notNull(),
-    exchange: exchangeEnum("exchange").notNull(),
-    pair: text("pair").notNull(),
+    coin: text("coin").notNull(),
     interval: text("interval").notNull(),
     open: real("open").notNull(),
     high: real("high").notNull(),
@@ -268,48 +269,78 @@ export const marketDataCandles = pgTable(
     volume: real("volume").notNull(),
   },
   (table) => [
-    index("candles_pair_interval_idx").on(table.pair, table.interval),
+    index("candles_coin_interval_idx").on(table.coin, table.interval),
     index("candles_time_idx").on(table.time),
-  ]
+  ],
 );
 
-// Polymarket Events
-export const polymarketEvents = pgTable("polymarket_events", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  conditionId: text("condition_id").notNull().unique(),
-  title: text("title").notNull(),
-  description: text("description"),
-  endDate: timestamp("end_date"),
-  category: text("category"),
-  outcomes: jsonb("outcomes").$type<
-    Array<{ name: string; price: number }>
-  >(),
-  currentOdds: jsonb("current_odds").$type<Record<string, number>>(),
-  volume: real("volume"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// Polymarket Positions
-export const polymarketPositions = pgTable(
-  "polymarket_positions",
+// Copy Trading Leaders
+export const copyLeaders = pgTable(
+  "copy_leaders",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    agentId: uuid("agent_id")
+    walletAddress: text("wallet_address").notNull().unique(),
+    name: text("name"),
+    aiScore: real("ai_score").default(0),
+    sharpeRatio: real("sharpe_ratio").default(0),
+    winRate: real("win_rate").default(0),
+    maxDrawdown: real("max_drawdown").default(0),
+    totalPnl: real("total_pnl").default(0),
+    pnl30d: real("pnl_30d").default(0),
+    avgLeverage: real("avg_leverage").default(1),
+    followerCount: integer("follower_count").default(0).notNull(),
+    strategyTags: jsonb("strategy_tags").$type<string[]>(),
+    isActive: boolean("is_active").default(true).notNull(),
+    lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("copy_leaders_score_idx").on(table.aiScore),
+    index("copy_leaders_pnl_idx").on(table.totalPnl),
+  ],
+);
+
+// Copy Subscriptions
+export const copySubscriptions = pgTable(
+  "copy_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
       .notNull()
-      .references(() => agents.id, { onDelete: "cascade" }),
-    eventId: uuid("event_id")
+      .references(() => users.id, { onDelete: "cascade" }),
+    leaderId: uuid("leader_id")
       .notNull()
-      .references(() => polymarketEvents.id),
-    outcome: text("outcome").notNull(),
-    shares: real("shares").notNull(),
-    avgPrice: real("avg_price").notNull(),
-    currentPrice: real("current_price").notNull(),
-    status: text("status").notNull().default("open"),
+      .references(() => copyLeaders.id, { onDelete: "cascade" }),
+    allocationUsd: real("allocation_usd").notNull(),
+    maxLeverage: integer("max_leverage").default(5).notNull(),
+    riskScale: real("risk_scale").default(1).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    totalPnl: real("total_pnl").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [index("polymarket_positions_agent_idx").on(table.agentId)]
+  (table) => [
+    index("copy_subs_user_idx").on(table.userId),
+    index("copy_subs_leader_idx").on(table.leaderId),
+  ],
+);
+
+// AI Chat Sessions
+export const aiSessions = pgTable(
+  "ai_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    messages: jsonb("messages").$type<
+      Array<{ role: string; content: string; timestamp: string }>
+    >(),
+    context: jsonb("context").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [index("ai_sessions_user_idx").on(table.userId)],
 );
 
 // Notifications
@@ -330,8 +361,61 @@ export const notifications = pgTable(
   (table) => [
     index("notifications_user_idx").on(table.userId),
     index("notifications_created_idx").on(table.createdAt),
-  ]
+  ],
 );
+
+// User Profiles (extended info for leaderboard & social)
+export const userProfiles = pgTable(
+  "user_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    username: text("username").unique(),
+    displayName: text("display_name"),
+    bio: text("bio"),
+    avatarUrl: text("avatar_url"),
+    country: text("country"),
+    twitter: text("twitter"),
+    telegram: text("telegram"),
+    website: text("website"),
+    tradingExperience: text("trading_experience"),
+    favoriteAssets: jsonb("favorite_assets").$type<string[]>(),
+    isPublic: boolean("is_public").default(true).notNull(),
+    showOnLeaderboard: boolean("show_on_leaderboard")
+      .default(true)
+      .notNull(),
+    totalPnl: real("total_pnl").default(0).notNull(),
+    totalTrades: integer("total_trades").default(0).notNull(),
+    winRate: real("win_rate").default(0).notNull(),
+    bestStreak: integer("best_streak").default(0).notNull(),
+    currentStreak: integer("current_streak").default(0).notNull(),
+    rank: integer("rank"),
+    badges: jsonb("badges").$type<
+      Array<{ id: string; name: string; icon: string; earnedAt: string }>
+    >(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("user_profiles_username_idx").on(table.username),
+    index("user_profiles_user_idx").on(table.userId),
+    index("user_profiles_rank_idx").on(table.rank),
+    index("user_profiles_total_pnl_idx").on(table.totalPnl),
+  ],
+);
+
+// Wallet Nonces (for SIWE auth)
+export const walletNonces = pgTable("wallet_nonces", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  address: text("address").notNull(),
+  nonce: text("nonce").notNull(),
+  message: text("message").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 // Audit Log
 export const auditLog = pgTable(
@@ -349,5 +433,5 @@ export const auditLog = pgTable(
   (table) => [
     index("audit_log_user_idx").on(table.userId),
     index("audit_log_created_idx").on(table.createdAt),
-  ]
+  ],
 );

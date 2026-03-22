@@ -19,6 +19,12 @@ const config: Config = {
           primary: "#00E5FF",
           secondary: "#8B5CF6",
         },
+        text: {
+          primary: "#F8FAFC",
+          body: "#E2E8F0",
+          muted: "#94A3B8",
+          disabled: "#475569",
+        },
         success: "#10B981",
         danger: "#F43F5E",
         warning: "#F59E0B",

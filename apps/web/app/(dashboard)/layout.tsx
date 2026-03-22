@@ -1,5 +1,8 @@
+import { Suspense } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { TopNav } from "@/components/dashboard/top-nav";
+import { WalletProviders } from "@/lib/wallet/providers";
+import { FullPageLoader } from "@/components/dashboard/loading-logo";
 
 export default function DashboardLayout({
   children,
@@ -7,12 +10,16 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-zelkora-base">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopNav />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <WalletProviders>
+      <div className="flex h-screen overflow-hidden bg-zelkora-base">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <TopNav />
+          <main className="flex-1 overflow-y-auto p-6">
+            <Suspense fallback={<FullPageLoader />}>{children}</Suspense>
+          </main>
+        </div>
       </div>
-    </div>
+    </WalletProviders>
   );
 }

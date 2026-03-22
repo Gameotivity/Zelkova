@@ -1,16 +1,16 @@
-export type Exchange = "binance" | "bybit";
-
-export type AgentType = "CRYPTO" | "POLYMARKET";
+export type AgentType = "PERPS";
 
 export type AgentStatus = "DRAFT" | "PAPER" | "LIVE" | "PAUSED" | "STOPPED";
 
 export type OrderSide = "BUY" | "SELL";
 
-export type OrderType = "MARKET" | "LIMIT";
+export type OrderType = "MARKET" | "LIMIT" | "TRIGGER";
 
 export type TradeStatus = "PENDING" | "FILLED" | "PARTIALLY_FILLED" | "CANCELLED" | "FAILED";
 
 export type PositionSide = "LONG" | "SHORT";
+
+export type MarginMode = "CROSS" | "ISOLATED";
 
 export type SubscriptionTier = "FREE" | "PRO" | "ELITE";
 
@@ -21,13 +21,9 @@ export type CryptoStrategy =
   | "DCA_BOT"
   | "RSI_CROSSOVER"
   | "EMA_CROSSOVER"
-  | "BREAKOUT";
-
-export type PolymarketStrategy =
-  | "ODDS_DIVERGENCE"
-  | "MOMENTUM"
-  | "MEAN_REVERSION"
-  | "SENTIMENT";
+  | "BREAKOUT"
+  | "MACD_TREND"
+  | "BOLLINGER_MEAN_REVERSION";
 
 export type CandleInterval = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 
@@ -38,6 +34,7 @@ export interface RiskConfig {
   maxDailyLossPct: number;
   trailingStop?: boolean;
   cooldownMinutes: number;
+  maxLeverage: number;
 }
 
 export interface GridBotConfig {
@@ -71,26 +68,4 @@ export interface BreakoutConfig {
   lookbackPeriod: number;
   volumeMultiplier: number;
   breakoutThreshold: number;
-}
-
-export interface PolymarketOddsDivergenceConfig {
-  targetDivergencePct: number;
-}
-
-export interface PolymarketMomentumConfig {
-  oddsChangeThreshold: number;
-  lookbackHours: number;
-  confirmationTicks: number;
-}
-
-export interface PolymarketMeanReversionConfig {
-  historicalAvgOdds: number;
-  deviationThreshold: number;
-  positionSize: number;
-}
-
-export interface PolymarketSentimentConfig {
-  newsSentimentThreshold: number;
-  socialVolumeSpike: number;
-  minConfidence: number;
 }

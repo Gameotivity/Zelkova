@@ -1,89 +1,158 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { auth } from "@/lib/auth";
-import { eq } from "drizzle-orm";
-import { authenticator } from "otplib";
-import QRCode from "qrcode";
+import { users, sessions } from "@/lib/db/schema";
+import { eq, and, gt } from "drizzle-orm";
+import { z } from "zod";
+import {
+  generateTotpSecret,
+  generateOtpauthUri,
+  verifyTotpCode,
+} from "@/lib/auth/totp";
 
-// GET: Generate 2FA setup (secret + QR code)
-export async function GET() {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+// --- Auth helper ---
 
-    const secret = authenticator.generateSecret();
-    const otpauth = authenticator.keyuri(
-      session.user.email!,
-      "Zelkora.ai",
-      secret
-    );
-    const qrCode = await QRCode.toDataURL(otpauth);
+async function getUserId(req: NextRequest): Promise<string | null> {
+  const token = req.cookies.get("zelkora-session")?.value;
+  if (!token) return null;
 
-    // Store secret temporarily (user must verify before it's active)
-    await db
-      .update(users)
-      .set({ totpSecret: secret })
-      .where(eq(users.id, session.user.id));
+  const [session] = await db
+    .select({ userId: sessions.userId })
+    .from(sessions)
+    .where(
+      and(eq(sessions.sessionToken, token), gt(sessions.expires, new Date()))
+    )
+    .limit(1);
 
-    return NextResponse.json({ qrCode, secret });
-  } catch (error) {
-    console.error("2FA setup error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
+  return session?.userId ?? null;
 }
 
-// POST: Verify 2FA code and enable
+// --- Zod schemas ---
+
+const actionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("setup") }),
+  z.object({ action: z.literal("enable"), code: z.string().length(6) }),
+  z.object({ action: z.literal("verify"), code: z.string().length(6) }),
+  z.object({ action: z.literal("disable"), code: z.string().length(6) }),
+]);
+
+// --- POST: all 2FA actions ---
+
 export async function POST(req: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const userId = await getUserId(req);
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    const { code } = await req.json();
-    if (!code || code.length !== 6) {
-      return NextResponse.json({ error: "Invalid code" }, { status: 400 });
-    }
+  const body: unknown = await req.json();
+  const parsed = actionSchema.safeParse(body);
 
-    const [user] = await db
-      .select({ totpSecret: users.totpSecret })
-      .from(users)
-      .where(eq(users.id, session.user.id))
-      .limit(1);
-
-    if (!user?.totpSecret) {
-      return NextResponse.json(
-        { error: "2FA not initialized. Generate a secret first." },
-        { status: 400 }
-      );
-    }
-
-    const isValid = authenticator.verify({
-      token: code,
-      secret: user.totpSecret,
-    });
-
-    if (!isValid) {
-      return NextResponse.json({ error: "Invalid code" }, { status: 400 });
-    }
-
-    await db
-      .update(users)
-      .set({ is2FAEnabled: true })
-      .where(eq(users.id, session.user.id));
-
-    return NextResponse.json({ success: true, message: "2FA enabled" });
-  } catch (error) {
-    console.error("2FA verify error:", error);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: "Invalid input", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
     );
+  }
+
+  const data = parsed.data;
+
+  // Fetch user record
+  const [user] = await db
+    .select({
+      email: users.email,
+      totpSecret: users.totpSecret,
+      is2FAEnabled: users.is2FAEnabled,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  switch (data.action) {
+    case "setup": {
+      const secret = generateTotpSecret();
+      const otpauthUri = generateOtpauthUri(
+        secret,
+        user.email ?? userId
+      );
+
+      // Store secret (not yet enabled until user verifies)
+      await db
+        .update(users)
+        .set({ totpSecret: secret, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
+      return NextResponse.json({ secret, otpauthUri });
+    }
+
+    case "enable": {
+      if (!user.totpSecret) {
+        return NextResponse.json(
+          { error: "Run setup first to generate a TOTP secret" },
+          { status: 400 }
+        );
+      }
+
+      if (!verifyTotpCode(user.totpSecret, data.code)) {
+        return NextResponse.json(
+          { error: "Invalid verification code" },
+          { status: 400 }
+        );
+      }
+
+      await db
+        .update(users)
+        .set({ is2FAEnabled: true, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
+      return NextResponse.json({
+        success: true,
+        message: "2FA has been enabled",
+      });
+    }
+
+    case "verify": {
+      if (!user.is2FAEnabled || !user.totpSecret) {
+        return NextResponse.json(
+          { error: "2FA is not enabled for this account" },
+          { status: 400 }
+        );
+      }
+
+      const valid = verifyTotpCode(user.totpSecret, data.code);
+      return NextResponse.json({ valid });
+    }
+
+    case "disable": {
+      if (!user.is2FAEnabled || !user.totpSecret) {
+        return NextResponse.json(
+          { error: "2FA is not enabled for this account" },
+          { status: 400 }
+        );
+      }
+
+      if (!verifyTotpCode(user.totpSecret, data.code)) {
+        return NextResponse.json(
+          { error: "Invalid verification code" },
+          { status: 400 }
+        );
+      }
+
+      await db
+        .update(users)
+        .set({
+          is2FAEnabled: false,
+          totpSecret: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      return NextResponse.json({
+        success: true,
+        message: "2FA has been disabled",
+      });
+    }
   }
 }

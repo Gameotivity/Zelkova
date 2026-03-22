@@ -1,61 +1,56 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { db } from "@/lib/db";
-import { exchangeConnections } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import {
-  connectExchange,
-  getBalances,
-} from "@/lib/exchange/ccxt-wrapper";
-import { maskApiKey } from "@/lib/auth/encryption";
-import { exchangeConnectionSchema } from "@zelkora/shared";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getPositions, getAccountSummary } from "@/lib/hyperliquid/portfolio-service";
 
 export const exchangeRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const connections = await db
+  /** Get wallet connection status */
+  status: protectedProcedure.query(async ({ ctx }) => {
+    const [user] = await db
       .select({
-        id: exchangeConnections.id,
-        exchange: exchangeConnections.exchange,
-        label: exchangeConnections.label,
-        isActive: exchangeConnections.isActive,
-        createdAt: exchangeConnections.createdAt,
+        walletAddress: users.walletAddress,
+        builderFeeApproved: users.builderFeeApproved,
       })
-      .from(exchangeConnections)
-      .where(eq(exchangeConnections.userId, ctx.userId));
+      .from(users)
+      .where(eq(users.id, ctx.userId))
+      .limit(1);
 
-    return connections;
+    return {
+      connected: !!user?.walletAddress,
+      walletAddress: user?.walletAddress ?? null,
+      builderFeeApproved: user?.builderFeeApproved ?? false,
+    };
   }),
 
-  connect: protectedProcedure
-    .input(exchangeConnectionSchema)
-    .mutation(async ({ ctx, input }) => {
-      return connectExchange(
-        ctx.userId,
-        input.exchange,
-        input.apiKey,
-        input.apiSecret,
-        input.label
-      );
-    }),
+  /** Get account summary from Hyperliquid */
+  getAccountSummary: protectedProcedure.query(async ({ ctx }) => {
+    const [user] = await db
+      .select({ walletAddress: users.walletAddress })
+      .from(users)
+      .where(eq(users.id, ctx.userId))
+      .limit(1);
 
-  getBalances: protectedProcedure
-    .input(z.object({ exchange: z.enum(["binance", "bybit"]) }))
-    .query(async ({ ctx, input }) => {
-      return getBalances(ctx.userId, input.exchange);
-    }),
+    if (!user?.walletAddress) {
+      return null;
+    }
 
-  disconnect: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      await db
-        .update(exchangeConnections)
-        .set({ isActive: false, updatedAt: new Date() })
-        .where(
-          and(
-            eq(exchangeConnections.id, input.id),
-            eq(exchangeConnections.userId, ctx.userId)
-          )
-        );
-      return { success: true };
-    }),
+    return getAccountSummary(user.walletAddress);
+  }),
+
+  /** Get open positions from Hyperliquid */
+  getPositions: protectedProcedure.query(async ({ ctx }) => {
+    const [user] = await db
+      .select({ walletAddress: users.walletAddress })
+      .from(users)
+      .where(eq(users.id, ctx.userId))
+      .limit(1);
+
+    if (!user?.walletAddress) {
+      return [];
+    }
+
+    return getPositions(user.walletAddress);
+  }),
 });

@@ -3,7 +3,23 @@ import { router, protectedProcedure } from "../trpc";
 import { db } from "@/lib/db";
 import { agents, trades, positions, signals } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { createAgentSchema } from "@zelkora/shared";
+
+const createAgentInput = z.object({
+  name: z.string().min(1).max(100),
+  pairs: z.array(z.string()).optional(),
+  strategy: z.string(),
+  strategyConfig: z.record(z.unknown()),
+  riskConfig: z.object({
+    stopLossPct: z.number().min(0.5).max(50),
+    takeProfitPct: z.number().min(0.5).max(500).optional(),
+    maxPositionSizePct: z.number().min(1).max(100),
+    maxDailyLossPct: z.number().min(0.5).max(25),
+    trailingStop: z.boolean().optional(),
+    cooldownMinutes: z.number().min(0).max(1440),
+    maxLeverage: z.number().int().min(1).max(50).default(1),
+  }),
+  mode: z.enum(["PAPER", "LIVE"]),
+});
 
 export const agentsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -30,15 +46,13 @@ export const agentsRouter = router({
     }),
 
   create: protectedProcedure
-    .input(createAgentSchema)
+    .input(createAgentInput)
     .mutation(async ({ ctx, input }) => {
       const [agent] = await db
         .insert(agents)
         .values({
           userId: ctx.userId,
           name: input.name,
-          type: input.type,
-          exchange: input.exchange,
           pairs: input.pairs,
           strategy: input.strategy,
           strategyConfig: input.strategyConfig,
