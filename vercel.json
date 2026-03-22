@@ -1,16 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd ../.. && npx turbo build --filter=@zelkora/web",
-  "installCommand": "npm install",
+  "buildCommand": "npx next build",
+  "installCommand": "cd ../.. && npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next",
-  "regions": ["iad1"],
-  "env": {
-    "DATABASE_URL": "@database-url",
-    "NEXTAUTH_SECRET": "@nextauth-secret",
-    "NEXTAUTH_URL": "@nextauth-url",
-    "ENCRYPTION_KEY": "@encryption-key",
-    "OPENAI_API_KEY": "@openai-api-key",
-    "ANTHROPIC_API_KEY": "@anthropic-api-key"
-  }
+  "outputDirectory": ".next"
 }
