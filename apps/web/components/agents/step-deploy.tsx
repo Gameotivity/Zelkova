@@ -6,7 +6,6 @@ import type { BotConfig } from "./bot-data";
 interface StepDeployProps {
   config: BotConfig;
   agentName: string;
-  exchange: string;
   selectedPairs: string[];
   templateName: string | null;
   mode: "PAPER" | "LIVE";
@@ -16,7 +15,6 @@ interface StepDeployProps {
 export function StepDeploy({
   config,
   agentName,
-  exchange,
   selectedPairs,
   templateName,
   mode,
@@ -56,14 +54,14 @@ export function StepDeploy({
         >
           <div className="text-2xl">&#9889;</div>
           <p className="mt-2 text-sm font-bold text-[#F8FAFC]">Live Trading</p>
-          <p className="mt-1 text-[10px] text-[#94A3B8]">Real trades on your exchange. Requires API keys + 2FA.</p>
+          <p className="mt-1 text-[10px] text-[#94A3B8]">Real trades on Hyperliquid. Requires wallet + builder fee approval.</p>
         </button>
       </div>
 
       {mode === "LIVE" && (
         <div className="rounded-lg border border-[#F43F5E]/30 bg-[#F43F5E]/5 p-4">
           <p className="text-xs font-medium text-[#F43F5E]">
-            Live trading uses real funds. 2FA verification and connected exchange API keys are required. Ensure your stop-loss is configured.
+            Live trading uses real funds on Hyperliquid DEX. Wallet connection and builder fee approval are required. Ensure your stop-loss is configured.
           </p>
         </div>
       )}
@@ -75,7 +73,7 @@ export function StepDeploy({
         <div className="grid grid-cols-2 gap-x-8 gap-y-3">
           <SummaryRow label="Name" value={agentName || "Unnamed Bot"} />
           {templateName && <SummaryRow label="Template" value={templateName} />}
-          <SummaryRow label="Exchange" value={exchange} />
+          <SummaryRow label="Exchange" value="Hyperliquid DEX" />
           <SummaryRow label="Mode" value={mode === "PAPER" ? "Paper Trading" : "Live Trading"} />
           <SummaryRow label="Capital" value={`$${config.capitalAllocation.toLocaleString()}`} />
           <SummaryRow label="Stop Loss" value={`${config.stopLossPct}%`} highlight="danger" />

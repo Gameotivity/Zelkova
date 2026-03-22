@@ -128,7 +128,7 @@ export function PortfolioOverview() {
         {isEmpty ? (
           <div>
             <p className="text-2xl font-bold font-mono tabular-nums text-text-primary">$0.00</p>
-            <p className="mt-1 text-xs text-text-muted">Connect an exchange to get started</p>
+            <p className="mt-1 text-xs text-text-muted">Connect your wallet to get started</p>
           </div>
         ) : (
           <div>

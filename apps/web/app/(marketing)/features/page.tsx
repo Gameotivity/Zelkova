@@ -10,7 +10,7 @@ export default function FeaturesPage() {
     },
     {
       title: "Live Trading",
-      description: "One click to go live on Binance or Bybit with real capital and real profits.",
+      description: "One click to go live on Hyperliquid DEX with real capital. Non-custodial, on-chain.",
     },
     {
       title: "AI-Powered Suggestions",

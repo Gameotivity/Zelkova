@@ -11,8 +11,6 @@ interface StepConfigureProps {
   onConfigChange: (config: BotConfig) => void;
   agentName: string;
   onNameChange: (name: string) => void;
-  exchange: "binance" | "bybit";
-  onExchangeChange: (ex: "binance" | "bybit") => void;
   selectedPairs: string[];
   onTogglePair: (pair: string) => void;
 }
@@ -23,8 +21,6 @@ export function StepConfigure({
   onConfigChange,
   agentName,
   onNameChange,
-  exchange,
-  onExchangeChange,
   selectedPairs,
   onTogglePair,
 }: StepConfigureProps) {
@@ -55,30 +51,25 @@ export function StepConfigure({
         <div>
           <label className="mb-1.5 flex items-center text-sm font-medium text-[#E2E8F0]">
             Exchange
-            <InfoTooltip text="Choose which exchange to trade on. Requires API keys in Settings." />
+            <InfoTooltip text="All trading happens on Hyperliquid DEX. Non-custodial — your wallet, your keys." />
           </label>
-          <div className="flex gap-3">
-            {(["binance", "bybit"] as const).map((ex) => (
-              <button
-                key={ex}
-                onClick={() => onExchangeChange(ex)}
-                className={cn(
-                  "rounded-lg border px-6 py-2.5 text-sm font-medium capitalize transition-all duration-200",
-                  exchange === ex
-                    ? "border-[#00E5FF] bg-[#00E5FF]/10 text-[#00E5FF]"
-                    : "border-[#1E293B] text-[#94A3B8] hover:border-[#00E5FF]/40"
-                )}
-              >
-                {ex}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 rounded-lg border border-[#00E5FF]/30 bg-[#00E5FF]/5 px-4 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00E5FF]/10">
+              <svg className="h-4 w-4 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[#00E5FF]">Hyperliquid DEX</p>
+              <p className="text-[10px] text-[#94A3B8]">Perpetual contracts, non-custodial, on-chain</p>
+            </div>
           </div>
         </div>
 
         <div>
           <label className="mb-1.5 flex items-center text-sm font-medium text-[#E2E8F0]">
             Trading Pairs
-            <InfoTooltip text="Select which pairs this bot will trade. More pairs = more opportunities but more risk." />
+            <InfoTooltip text="Select which perpetual pairs this bot will trade. More pairs = more opportunities but more risk." />
           </label>
           <div className="flex flex-wrap gap-2">
             {TRADING_PAIRS.map((pair) => (

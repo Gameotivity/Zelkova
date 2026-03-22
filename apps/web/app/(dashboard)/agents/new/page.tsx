@@ -39,8 +39,7 @@ function NewAgentContent() {
   const [step, setStep] = useState(initialTemplate ? 1 : 0);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(initialTemplate);
   const [agentName, setAgentName] = useState("");
-  const [exchange, setExchange] = useState<"binance" | "bybit">("binance");
-  const [selectedPairs, setSelectedPairs] = useState<string[]>(["BTC/USDT"]);
+  const [selectedPairs, setSelectedPairs] = useState<string[]>(["BTC-USD"]);
   const [mode, setMode] = useState<"PAPER" | "LIVE">("PAPER");
 
   const templateBot = useMemo(
@@ -98,7 +97,6 @@ function NewAgentContent() {
         body: JSON.stringify({
           name: agentName,
           type: "CRYPTO",
-          exchange,
           pairs: selectedPairs,
           strategy: config.strategies.map((s) => s.id).join("+"),
           strategyConfig: Object.fromEntries(
@@ -156,8 +154,6 @@ function NewAgentContent() {
           onConfigChange={setConfig}
           agentName={agentName}
           onNameChange={setAgentName}
-          exchange={exchange}
-          onExchangeChange={setExchange}
           selectedPairs={selectedPairs}
           onTogglePair={togglePair}
         />
@@ -178,7 +174,6 @@ function NewAgentContent() {
         <StepDeploy
           config={config}
           agentName={agentName}
-          exchange={exchange}
           selectedPairs={selectedPairs}
           templateName={templateBot?.name ?? null}
           mode={mode}

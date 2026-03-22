@@ -180,7 +180,7 @@ export const PREBUILT_BOTS: PrebuiltBot[] = [
 ];
 
 export const TRADING_PAIRS = [
-  "BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
-  "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "DOT/USDT", "MATIC/USDT",
-  "LINK/USDT", "UNI/USDT", "ARB/USDT",
+  "BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD", "AVAX-USD",
+  "ARB-USD", "OP-USD", "SUI-USD", "APT-USD", "INJ-USD",
+  "SEI-USD", "TIA-USD", "LINK-USD", "WIF-USD", "PEPE-USD",
 ];

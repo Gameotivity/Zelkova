@@ -32,7 +32,7 @@ export default function DocsPage() {
               <div className="rounded-xl border border-zelkora-border bg-zelkora-card p-6">
                 <h3 className="font-semibold text-text-primary">4. Go Live</h3>
                 <p className="mt-2 text-sm text-text-muted">
-                  Connect your exchange API keys, enable 2FA, and deploy your agent with real capital.
+                  Connect your wallet, approve builder fees, and deploy your agent with real capital on Hyperliquid.
                 </p>
               </div>
             </div>
