@@ -1,16 +1,15 @@
 import { generateLiveSignal } from "../signals/strategy-runner";
-import { executePaperTrade, fetchLivePrice } from "../executors/paper-executor";
+import { executePaperTrade, fetchLivePrice } from "../executors/hl-executor";
+import { db } from "../db";
 import type { Signal, TradeResult } from "./types";
 
 export interface AgentConfig {
   id: string;
   userId: string;
-  type: "CRYPTO" | "POLYMARKET";
   status: "PAPER" | "LIVE" | "PAUSED";
-  exchange?: string;
-  pairs?: string[];
+  pairs: string[];
   strategy: string;
-  strategyConfig: Record<string, any>;
+  strategyConfig: Record<string, unknown>;
   riskConfig: {
     stopLossPct: number;
     takeProfitPct?: number;
@@ -18,16 +17,19 @@ export interface AgentConfig {
     maxDailyLossPct: number;
     trailingStop?: boolean;
     cooldownMinutes: number;
+    maxLeverage: number;
   };
   capitalUsd: number;
 }
 
 interface OpenPosition {
+  coin: string;
   pair: string;
   side: "LONG" | "SHORT";
   entryPrice: number;
   quantity: number;
   highestPrice: number;
+  lowestPrice: number;
   orderId: string;
 }
 
@@ -60,7 +62,7 @@ export class AgentRunner {
     this.isRunning = true;
     console.log(
       `[Agent ${this.config.id.slice(0, 8)}] Started — ${this.config.strategy} ` +
-      `on ${this.config.pairs?.join(", ")} (${this.config.status}, $${this.config.capitalUsd})`
+      `on ${this.config.pairs.join(", ")} (${this.config.status}, $${this.config.capitalUsd})`
     );
   }
 
@@ -74,6 +76,12 @@ export class AgentRunner {
 
   async pause(reason: string) {
     this.config.status = "PAUSED";
+    // Persist pause to DB
+    try {
+      await db.execute(
+        `UPDATE agents SET status = 'PAUSED', updated_at = NOW() WHERE id = '${this.config.id}'`
+      );
+    } catch { /* DB write is best-effort */ }
     console.log(`[Agent ${this.config.id.slice(0, 8)}] PAUSED: ${reason}`);
   }
 
@@ -114,42 +122,45 @@ export class AgentRunner {
     await this.checkPositionExits();
 
     // Generate signals for each pair
-    const exchange = this.config.exchange || "binance";
-    for (const pair of this.config.pairs || []) {
+    for (const pair of this.config.pairs) {
+      const coin = pair.replace('-USD', '').replace('/USD', '');
       try {
         const signal = await generateLiveSignal(
           this.config.strategy,
-          exchange,
+          coin,
           pair,
-          this.config.strategyConfig
+          this.config.strategyConfig,
         );
 
         console.log(
-          `[Agent ${this.config.id.slice(0, 8)}] ${pair} → ${signal.direction} ` +
+          `[Agent ${this.config.id.slice(0, 8)}] ${coin} → ${signal.direction} ` +
           `(conf: ${signal.confidence.toFixed(0)}%) — ${signal.reason}`
         );
 
         if (signal.direction !== "HOLD" && signal.confidence >= 50) {
-          await this.executeTrade(signal);
+          await this.executeTrade(signal, coin);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
         console.error(
-          `[Agent ${this.config.id.slice(0, 8)}] Signal error ${pair}: ${err.message}`
+          `[Agent ${this.config.id.slice(0, 8)}] Signal error ${coin}: ${msg}`
         );
       }
     }
   }
 
   private async checkPositionExits(): Promise<void> {
-    const exchange = this.config.exchange || "binance";
-
-    for (const [pair, pos] of this.positions) {
+    for (const [coin, pos] of this.positions) {
       try {
-        const currentPrice = await fetchLivePrice(exchange, pair);
+        const currentPrice = await fetchLivePrice(coin);
         if (currentPrice <= 0) continue;
 
+        // Track high/low for trailing stops
         if (pos.side === "LONG" && currentPrice > pos.highestPrice) {
           pos.highestPrice = currentPrice;
+        }
+        if (pos.side === "SHORT" && currentPrice < pos.lowestPrice) {
+          pos.lowestPrice = currentPrice;
         }
 
         const pnlPct = pos.side === "LONG"
@@ -159,9 +170,9 @@ export class AgentRunner {
         // Stop-loss
         if (pnlPct <= -this.config.riskConfig.stopLossPct) {
           console.log(
-            `[Agent ${this.config.id.slice(0, 8)}] STOP-LOSS ${pair}: ${pnlPct.toFixed(2)}%`
+            `[Agent ${this.config.id.slice(0, 8)}] STOP-LOSS ${coin}: ${pnlPct.toFixed(2)}%`
           );
-          await this.closePosition(pair, currentPrice, "STOP_LOSS");
+          await this.closePosition(coin, currentPrice, "STOP_LOSS");
           continue;
         }
 
@@ -171,83 +182,94 @@ export class AgentRunner {
           pnlPct >= this.config.riskConfig.takeProfitPct
         ) {
           console.log(
-            `[Agent ${this.config.id.slice(0, 8)}] TAKE-PROFIT ${pair}: +${pnlPct.toFixed(2)}%`
+            `[Agent ${this.config.id.slice(0, 8)}] TAKE-PROFIT ${coin}: +${pnlPct.toFixed(2)}%`
           );
-          await this.closePosition(pair, currentPrice, "TAKE_PROFIT");
+          await this.closePosition(coin, currentPrice, "TAKE_PROFIT");
           continue;
         }
 
         // Trailing stop
-        if (this.config.riskConfig.trailingStop && pos.side === "LONG") {
-          const trailingPrice =
-            pos.highestPrice * (1 - this.config.riskConfig.stopLossPct / 100);
-          if (currentPrice <= trailingPrice) {
-            console.log(
-              `[Agent ${this.config.id.slice(0, 8)}] TRAILING STOP ${pair}: ` +
-              `$${currentPrice.toFixed(2)} < $${trailingPrice.toFixed(2)}`
-            );
-            await this.closePosition(pair, currentPrice, "TRAILING_STOP");
+        if (this.config.riskConfig.trailingStop) {
+          if (pos.side === "LONG") {
+            const trailingPrice = pos.highestPrice * (1 - this.config.riskConfig.stopLossPct / 100);
+            if (currentPrice <= trailingPrice) {
+              console.log(
+                `[Agent ${this.config.id.slice(0, 8)}] TRAILING STOP ${coin}: ` +
+                `$${currentPrice.toFixed(2)} < $${trailingPrice.toFixed(2)}`
+              );
+              await this.closePosition(coin, currentPrice, "TRAILING_STOP");
+            }
+          } else {
+            const trailingPrice = pos.lowestPrice * (1 + this.config.riskConfig.stopLossPct / 100);
+            if (currentPrice >= trailingPrice) {
+              await this.closePosition(coin, currentPrice, "TRAILING_STOP");
+            }
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
         console.error(
-          `[Agent ${this.config.id.slice(0, 8)}] Position check error ${pair}: ${err.message}`
+          `[Agent ${this.config.id.slice(0, 8)}] Position check error ${coin}: ${msg}`
         );
       }
     }
   }
 
-  private async executeTrade(signal: Signal): Promise<void> {
+  private async executeTrade(signal: Signal, coin: string): Promise<void> {
     if (signal.direction === "HOLD") return;
 
-    const exchange = this.config.exchange || "binance";
-
-    if (signal.direction === "BUY" && this.positions.has(signal.pair)) return;
+    // Don't open duplicate position
+    if (signal.direction === "BUY" && this.positions.has(coin)) return;
 
     try {
       const result = await executePaperTrade(
-        exchange,
         signal,
         this.config.capitalUsd,
-        this.config.riskConfig.maxPositionSizePct
+        this.config.riskConfig.maxPositionSizePct,
       );
 
       this.tradeLog.push(result);
       this.tradeCount++;
       this.lastTradeTime = new Date();
 
+      // Persist trade to DB
+      await this.persistTrade(result);
+
       if (signal.direction === "BUY") {
-        this.positions.set(signal.pair, {
+        this.positions.set(coin, {
+          coin,
           pair: signal.pair,
           side: "LONG",
           entryPrice: result.price,
           quantity: result.quantity,
           highestPrice: result.price,
+          lowestPrice: result.price,
           orderId: result.orderId,
         });
-      } else if (signal.direction === "SELL" && this.positions.has(signal.pair)) {
-        const pos = this.positions.get(signal.pair)!;
+      } else if (signal.direction === "SELL" && this.positions.has(coin)) {
+        const pos = this.positions.get(coin)!;
         const pnl = (result.price - pos.entryPrice) * pos.quantity - result.fee;
         this.dailyPnl += pnl;
-        this.positions.delete(signal.pair);
+        this.positions.delete(coin);
         console.log(
-          `[Agent ${this.config.id.slice(0, 8)}] Closed ${signal.pair}: ` +
+          `[Agent ${this.config.id.slice(0, 8)}] Closed ${coin}: ` +
           `P&L $${pnl.toFixed(2)} (daily: $${this.dailyPnl.toFixed(2)})`
         );
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.error(
-        `[Agent ${this.config.id.slice(0, 8)}] Execution error: ${err.message}`
+        `[Agent ${this.config.id.slice(0, 8)}] Execution error: ${msg}`
       );
     }
   }
 
   private async closePosition(
-    pair: string,
+    coin: string,
     currentPrice: number,
-    reason: string
+    reason: string,
   ): Promise<void> {
-    const pos = this.positions.get(pair);
+    const pos = this.positions.get(coin);
     if (!pos) return;
 
     const pnl =
@@ -255,17 +277,45 @@ export class AgentRunner {
         ? (currentPrice - pos.entryPrice) * pos.quantity
         : (pos.entryPrice - currentPrice) * pos.quantity;
 
-    const fee = pos.quantity * currentPrice * 0.001;
+    const fee = pos.quantity * currentPrice * 0.00035; // HL taker fee
     const netPnl = pnl - fee;
 
     this.dailyPnl += netPnl;
-    this.positions.delete(pair);
+    this.positions.delete(coin);
     this.tradeCount++;
 
     console.log(
-      `[Agent ${this.config.id.slice(0, 8)}] CLOSED ${pair} (${reason}): ` +
+      `[Agent ${this.config.id.slice(0, 8)}] CLOSED ${coin} (${reason}): ` +
       `$${pos.entryPrice.toFixed(2)} → $${currentPrice.toFixed(2)}, ` +
       `P&L: $${netPnl.toFixed(2)} (daily: $${this.dailyPnl.toFixed(2)})`
     );
+  }
+
+  private async persistTrade(result: TradeResult): Promise<void> {
+    try {
+      await db.execute(`
+        INSERT INTO trades (id, agent_id, user_id, coin, pair, side, type, quantity, price, fee, builder_fee, status, is_paper, hl_order_id, created_at)
+        VALUES (
+          gen_random_uuid(),
+          '${this.config.id}',
+          '${this.config.userId}',
+          '${result.coin}',
+          '${result.pair}',
+          '${result.side}',
+          'MARKET',
+          ${result.quantity},
+          ${result.price},
+          ${result.fee},
+          ${result.builderFee},
+          'FILLED',
+          ${result.isPaper},
+          ${result.hlOrderId ? `'${result.hlOrderId}'` : 'NULL'},
+          NOW()
+        )
+      `);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Agent ${this.config.id.slice(0, 8)}] DB persist error: ${msg}`);
+    }
   }
 }

@@ -1,14 +1,6 @@
-import { fetchLiveCandles } from "../executors/paper-executor";
+import { fetchCandles } from "../executors/hl-data";
+import type { Candle } from "../executors/hl-data";
 import type { Signal } from "../engine/types";
-
-interface Candle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
 
 /** Simple Moving Average */
 function sma(data: number[], period: number): number[] {
@@ -62,13 +54,13 @@ function rsi(closes: number[], period = 14): number[] {
   return result;
 }
 
-/** Run RSI Crossover strategy against live data */
+/** RSI Crossover strategy */
 export async function runRSICrossover(
-  exchange: string,
+  coin: string,
   pair: string,
-  config: { rsiPeriod: number; oversoldThreshold: number; overboughtThreshold: number; timeframe: string }
+  config: { rsiPeriod: number; oversoldThreshold: number; overboughtThreshold: number; timeframe: string },
 ): Promise<Signal> {
-  const candles = await fetchLiveCandles(exchange, pair, config.timeframe, 100);
+  const candles = await fetchCandles(coin, config.timeframe, 100);
   const closes = candles.map((c) => c.close);
   const rsiValues = rsi(closes, config.rsiPeriod);
 
@@ -94,13 +86,13 @@ export async function runRSICrossover(
   return { direction, confidence, strategy: "RSI_CROSSOVER", pair, indicators: { rsi: current, prevRsi: prev }, reason };
 }
 
-/** Run EMA Crossover strategy against live data */
+/** EMA Crossover strategy */
 export async function runEMACrossover(
-  exchange: string,
+  coin: string,
   pair: string,
-  config: { fastEma: number; slowEma: number; timeframe: string; confirmationCandles: number }
+  config: { fastEma: number; slowEma: number; timeframe: string; confirmationCandles: number },
 ): Promise<Signal> {
-  const candles = await fetchLiveCandles(exchange, pair, config.timeframe, 100);
+  const candles = await fetchCandles(coin, config.timeframe, 100);
   const closes = candles.map((c) => c.close);
   const fastEMA = ema(closes, config.fastEma);
   const slowEMA = ema(closes, config.slowEma);
@@ -130,13 +122,13 @@ export async function runEMACrossover(
   return { direction, confidence, strategy: "EMA_CROSSOVER", pair, indicators: { fastEma: fastNow, slowEma: slowNow }, reason };
 }
 
-/** Run Breakout strategy against live data */
+/** Breakout strategy */
 export async function runBreakout(
-  exchange: string,
+  coin: string,
   pair: string,
-  config: { lookbackPeriod: number; volumeMultiplier: number; breakoutThreshold: number; timeframe: string }
+  config: { lookbackPeriod: number; volumeMultiplier: number; breakoutThreshold: number; timeframe: string },
 ): Promise<Signal> {
-  const candles = await fetchLiveCandles(exchange, pair, config.timeframe || "1h", 100);
+  const candles = await fetchCandles(coin, config.timeframe || "1h", 100);
   const len = candles.length;
 
   if (len < config.lookbackPeriod + 1) {
@@ -168,18 +160,18 @@ export async function runBreakout(
 /** Route to correct strategy runner */
 export async function generateLiveSignal(
   strategy: string,
-  exchange: string,
+  coin: string,
   pair: string,
-  config: Record<string, any>
+  config: Record<string, unknown>,
 ): Promise<Signal> {
   switch (strategy) {
     case "RSI_CROSSOVER":
-      return runRSICrossover(exchange, pair, config as any);
+      return runRSICrossover(coin, pair, config as Parameters<typeof runRSICrossover>[2]);
     case "EMA_CROSSOVER":
-      return runEMACrossover(exchange, pair, config as any);
+      return runEMACrossover(coin, pair, config as Parameters<typeof runEMACrossover>[2]);
     case "BREAKOUT":
-      return runBreakout(exchange, pair, config as any);
+      return runBreakout(coin, pair, config as Parameters<typeof runBreakout>[2]);
     default:
-      return { direction: "HOLD", confidence: 0, strategy, pair, indicators: {}, reason: `Strategy ${strategy} not yet implemented for live signals` };
+      return { direction: "HOLD", confidence: 0, strategy, pair, indicators: {}, reason: `Strategy ${strategy} not implemented` };
   }
 }

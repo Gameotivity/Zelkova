@@ -11,16 +11,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ccxt": "^4.4.0",
     "drizzle-orm": "^0.38.0",
     "postgres": "^3.4.0",
     "bullmq": "^5.30.0",
     "ioredis": "^5.4.0",
-    "socket.io": "^4.8.0",
     "zod": "^3.23.0",
-    "technicalindicators": "^3.1.0",
-    "@zelkora/shared": "*",
-    "@zelkora/config": "*"
+    "@zelkora/shared": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

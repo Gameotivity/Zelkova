@@ -10,15 +10,20 @@ export interface Signal {
 export interface TradeResult {
   orderId: string;
   pair: string;
+  coin: string;
   side: "BUY" | "SELL";
   price: number;
   quantity: number;
   fee: number;
+  builderFee: number;
   isPaper: boolean;
   timestamp: Date;
+  /** Present for live trades */
+  hlOrderId?: number;
 }
 
 export interface PositionUpdate {
+  coin: string;
   pair: string;
   side: "LONG" | "SHORT";
   entryPrice: number;
