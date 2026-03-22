@@ -50,17 +50,14 @@ export class AgentScheduler {
 
     const timer = setInterval(async () => {
       try {
-        const signal = await runner.evaluate();
-        if (signal && signal.direction !== "HOLD") {
-          await runner.executeTrade(signal);
-        }
+        await runner.evaluate();
       } catch (err) {
         console.error(`[AgentScheduler] Error evaluating agent ${config.id}:`, err);
       }
     }, intervalMs);
 
     this.agents.set(config.id, { runner, intervalMs, timer });
-    console.log(`[AgentScheduler] Scheduled agent ${config.id} every ${intervalMs / 1000}s`);
+    console.log(`[AgentScheduler] Scheduled agent ${config.id.slice(0, 8)} every ${intervalMs / 1000}s`);
   }
 
   async removeAgent(agentId: string) {
@@ -71,12 +68,20 @@ export class AgentScheduler {
     this.agents.delete(agentId);
   }
 
-  async pauseAgent(agentId: string) {
+  async pauseAgent(agentId: string, reason: string) {
     const scheduled = this.agents.get(agentId);
-    if (scheduled) await scheduled.runner.pause();
+    if (scheduled) await scheduled.runner.pause(reason);
   }
 
   getActiveCount(): number {
     return this.agents.size;
+  }
+
+  getStats() {
+    const stats: Record<string, any> = {};
+    for (const [id, scheduled] of this.agents) {
+      stats[id] = scheduled.runner.stats;
+    }
+    return stats;
   }
 }
