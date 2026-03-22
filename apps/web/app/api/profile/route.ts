@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, isDbAvailable } from "@/lib/db";
 import { users, userProfiles, sessions } from "@/lib/db/schema";
 import { eq, and, ne, gt } from "drizzle-orm";
 import { z } from "zod";
@@ -8,15 +8,19 @@ async function getUserId(req: NextRequest): Promise<string | null> {
   const token = req.cookies.get("zelkora-session")?.value;
   if (!token) return null;
 
-  const [session] = await db
-    .select({ userId: sessions.userId })
-    .from(sessions)
-    .where(
-      and(eq(sessions.sessionToken, token), gt(sessions.expires, new Date()))
-    )
-    .limit(1);
+  try {
+    const [session] = await db
+      .select({ userId: sessions.userId })
+      .from(sessions)
+      .where(
+        and(eq(sessions.sessionToken, token), gt(sessions.expires, new Date()))
+      )
+      .limit(1);
 
-  return session?.userId ?? null;
+    return session?.userId ?? null;
+  } catch {
+    return null;
+  }
 }
 
 const updateProfileSchema = z.object({
@@ -31,7 +35,7 @@ const updateProfileSchema = z.object({
   country: z.string().max(50).optional(),
   twitter: z.string().max(50).optional(),
   telegram: z.string().max(50).optional(),
-  website: z.string().url().max(200).optional().or(z.literal("")),
+  website: z.string().max(200).optional().or(z.literal("")),
   tradingExperience: z
     .enum(["beginner", "intermediate", "advanced", "expert"])
     .optional(),
@@ -42,35 +46,63 @@ const updateProfileSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
+  const dbReady = await isDbAvailable();
+
+  if (!dbReady) {
+    // Return empty profile when DB is unavailable
+    return NextResponse.json({
+      user: null,
+      profile: null,
+      message: "Database unavailable — profile data will load when connected to Supabase.",
+    });
+  }
+
   const userId = await getUserId(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [profile] = await db
-    .select()
-    .from(userProfiles)
-    .where(eq(userProfiles.userId, userId))
-    .limit(1);
+  try {
+    const [profile] = await db
+      .select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
 
-  const [user] = await db
-    .select({
-      id: users.id,
-      walletAddress: users.walletAddress,
-      name: users.name,
-      image: users.image,
-      chainId: users.chainId,
-      createdAt: users.createdAt,
-      subscriptionTier: users.subscriptionTier,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+    const [user] = await db
+      .select({
+        id: users.id,
+        walletAddress: users.walletAddress,
+        name: users.name,
+        image: users.image,
+        chainId: users.chainId,
+        createdAt: users.createdAt,
+        subscriptionTier: users.subscriptionTier,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
-  return NextResponse.json({ user, profile });
+    return NextResponse.json({ user, profile });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json(
+      { error: "Failed to load profile", debug: message },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(req: NextRequest) {
+  const dbReady = await isDbAvailable();
+
+  if (!dbReady) {
+    return NextResponse.json(
+      { error: "Database unavailable. Profile changes cannot be saved right now." },
+      { status: 503 }
+    );
+  }
+
   const userId = await getUserId(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -88,72 +120,80 @@ export async function PUT(req: NextRequest) {
 
   const data = parsed.data;
 
-  if (data.username) {
+  try {
+    if (data.username) {
+      const [existing] = await db
+        .select({ id: userProfiles.id })
+        .from(userProfiles)
+        .where(
+          and(
+            eq(userProfiles.username, data.username),
+            ne(userProfiles.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (existing) {
+        return NextResponse.json(
+          { error: "Username already taken" },
+          { status: 409 }
+        );
+      }
+    }
+
+    if (data.name) {
+      await db
+        .update(users)
+        .set({ name: data.name, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+    }
+
+    const profileData = {
+      username: data.username,
+      displayName: data.displayName,
+      bio: data.bio,
+      country: data.country,
+      twitter: data.twitter,
+      telegram: data.telegram,
+      website: data.website || undefined,
+      tradingExperience: data.tradingExperience,
+      favoriteAssets: data.favoriteAssets,
+      isPublic: data.isPublic,
+      showOnLeaderboard: data.showOnLeaderboard,
+      updatedAt: new Date(),
+    };
+
+    const cleanData = Object.fromEntries(
+      Object.entries(profileData).filter(([, v]) => v !== undefined)
+    );
+
     const [existing] = await db
       .select({ id: userProfiles.id })
       .from(userProfiles)
-      .where(
-        and(
-          eq(userProfiles.username, data.username),
-          ne(userProfiles.userId, userId)
-        )
-      )
+      .where(eq(userProfiles.userId, userId))
       .limit(1);
 
     if (existing) {
-      return NextResponse.json(
-        { error: "Username already taken" },
-        { status: 409 }
-      );
+      await db
+        .update(userProfiles)
+        .set(cleanData)
+        .where(eq(userProfiles.userId, userId));
+    } else {
+      await db.insert(userProfiles).values({
+        userId,
+        username:
+          data.username ||
+          `trader_${Math.random().toString(36).slice(2, 8)}`,
+        ...cleanData,
+      });
     }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json(
+      { error: "Failed to save profile", debug: message },
+      { status: 500 }
+    );
   }
-
-  if (data.name) {
-    await db
-      .update(users)
-      .set({ name: data.name, updatedAt: new Date() })
-      .where(eq(users.id, userId));
-  }
-
-  const profileData = {
-    username: data.username,
-    displayName: data.displayName,
-    bio: data.bio,
-    country: data.country,
-    twitter: data.twitter,
-    telegram: data.telegram,
-    website: data.website || undefined,
-    tradingExperience: data.tradingExperience,
-    favoriteAssets: data.favoriteAssets,
-    isPublic: data.isPublic,
-    showOnLeaderboard: data.showOnLeaderboard,
-    updatedAt: new Date(),
-  };
-
-  const cleanData = Object.fromEntries(
-    Object.entries(profileData).filter(([, v]) => v !== undefined)
-  );
-
-  const [existing] = await db
-    .select({ id: userProfiles.id })
-    .from(userProfiles)
-    .where(eq(userProfiles.userId, userId))
-    .limit(1);
-
-  if (existing) {
-    await db
-      .update(userProfiles)
-      .set(cleanData)
-      .where(eq(userProfiles.userId, userId));
-  } else {
-    await db.insert(userProfiles).values({
-      userId,
-      username:
-        data.username ||
-        `trader_${Math.random().toString(36).slice(2, 8)}`,
-      ...cleanData,
-    });
-  }
-
-  return NextResponse.json({ success: true });
 }
