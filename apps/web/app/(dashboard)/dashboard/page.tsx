@@ -2,7 +2,6 @@ import { LiveTicker } from "@/components/dashboard/live-ticker";
 import { PortfolioOverview } from "@/components/dashboard/portfolio-overview";
 import { PriceChart } from "@/components/dashboard/price-chart";
 import { BotStatusGrid } from "@/components/dashboard/bot-status-grid";
-import { LaunchDemoBot } from "@/components/agents/launch-demo-bot";
 import { RecentActivity } from "./recent-activity";
 
 export default function DashboardPage() {
@@ -33,13 +32,12 @@ export default function DashboardPage() {
         {/* Portfolio Stats Row */}
         <PortfolioOverview />
 
-        {/* Chart + Bot Grid + Demo */}
+        {/* Chart + Bot Grid */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <div className="xl:col-span-2">
             <PriceChart />
           </div>
-          <div className="space-y-6">
-            <LaunchDemoBot />
+          <div>
             <BotStatusGrid />
           </div>
         </div>

@@ -1,7 +1,23 @@
-import { generateLiveSignal } from "../signals/strategy-runner";
 import { executePaperTrade, fetchLivePrice } from "../executors/hl-executor";
 import { db } from "../db";
 import type { Signal, TradeResult } from "./types";
+
+// Placeholder — new strategies will be plugged in here
+async function generateLiveSignal(
+  _strategy: string,
+  _coin: string,
+  _pair: string,
+  _config: Record<string, unknown>,
+): Promise<Signal> {
+  return {
+    direction: "HOLD",
+    confidence: 0,
+    strategy: _strategy,
+    pair: _pair,
+    indicators: {},
+    reason: "Strategy not implemented yet",
+  };
+}
 
 export interface AgentConfig {
   id: string;
