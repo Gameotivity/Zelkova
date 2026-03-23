@@ -93,6 +93,18 @@ export function TopNav() {
           </div>
         )}
 
+        {/* Demo Balance */}
+        <Link
+          href="/demo"
+          className="flex items-center gap-1.5 rounded-lg border border-[#F59E0B]/20 bg-[#F59E0B]/10 px-3 py-1.5 text-xs transition-all hover:bg-[#F59E0B]/20"
+        >
+          <svg className="h-3.5 w-3.5 text-[#F59E0B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+          </svg>
+          <span className="font-mono font-bold text-[#F59E0B]">$1,000</span>
+          <span className="hidden text-[#F59E0B]/60 sm:inline">Demo</span>
+        </Link>
+
         {/* Notifications */}
         <button className="relative rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-[#1A2340] hover:text-[#E2E8F0]">
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

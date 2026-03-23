@@ -131,18 +131,87 @@ function TradeForm({ balance, placing, error, onPlace }: { balance: number; plac
   );
 }
 
-function MarketInfo({ coin, positions }: { coin: string; positions: DemoPosition[] }) {
+function MarketInfo({ coin, positions, onAiTrade }: { coin: string; positions: DemoPosition[]; onAiTrade: (side: "buy" | "sell", size: number) => void }) {
   const price = positions.find((p) => p.coin === coin)?.currentPrice;
+  const [simRunning, setSimRunning] = useState(false);
+  const [simStep, setSimStep] = useState(0);
+  const [simResult, setSimResult] = useState<{ action: string; confidence: number; entry: number; sl: number; tp: number } | null>(null);
+
+  const SIM_STEPS = ["Fetching market data...", "Running 4 AI analysts...", "Bull vs Bear debate...", "Stat arb engine...", "Trader synthesis...", "Risk manager check...", "Fund manager decision..."];
+
+  function runAiSim() {
+    setSimRunning(true);
+    setSimResult(null);
+    setSimStep(0);
+    SIM_STEPS.forEach((_, i) => {
+      setTimeout(() => setSimStep(i + 1), (i + 1) * 700);
+    });
+    setTimeout(() => {
+      const isLong = Math.random() > 0.4;
+      const conf = 0.6 + Math.random() * 0.3;
+      const base = price || (coin === "BTC" ? 67500 : coin === "ETH" ? 2040 : 85);
+      const sl = isLong ? base * 0.97 : base * 1.03;
+      const tp = isLong ? base * 1.05 : base * 0.95;
+      setSimResult({ action: isLong ? "LONG" : "SHORT", confidence: conf, entry: base, sl, tp });
+      setSimRunning(false);
+    }, SIM_STEPS.length * 700 + 500);
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center h-full space-y-6 py-6">
-      <p className="text-xs text-[#94A3B8] uppercase tracking-wider">Selected Asset</p>
-      <p className="text-4xl font-bold text-[#F8FAFC]">{coin}</p>
-      {price ? <p className="font-mono text-2xl text-[#00E5FF]">{fmt(price)}</p> : <p className="font-mono text-lg text-[#475569]">Place a trade to see live price</p>}
-      <a href={`/strategies?ticker=${coin}`} className="inline-flex items-center gap-2 rounded-lg bg-[#8B5CF6]/10 px-4 py-2 text-sm font-medium text-[#8B5CF6] hover:bg-[#8B5CF6]/20 transition-all duration-200">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z" /><path d="M20.7 11A10 10 0 0 0 13 3.3" /></svg>
-        Run AI Analysis on {coin}
-      </a>
-      <p className="text-[10px] text-[#475569] text-center max-w-[220px]">All trades use real Hyperliquid prices with simulated execution</p>
+    <div className="flex flex-col h-full p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-[#94A3B8] uppercase tracking-wider">AI Analysis</p>
+        <span className="text-3xl font-bold text-[#F8FAFC]">{coin}</span>
+      </div>
+      {price && <p className="font-mono text-xl text-[#00E5FF] text-center">{fmt(price)}</p>}
+
+      {/* AI Simulation */}
+      {!simResult && !simRunning && (
+        <button onClick={runAiSim} className="w-full rounded-lg bg-[#8B5CF6]/10 border border-[#8B5CF6]/30 py-3 text-sm font-bold text-[#8B5CF6] hover:bg-[#8B5CF6]/20 transition-all duration-200 flex items-center justify-center gap-2">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09Z" /></svg>
+          Run AI Simulation
+        </button>
+      )}
+
+      {simRunning && (
+        <div className="space-y-2 rounded-lg bg-[#0A0F1A] border border-[#8B5CF6]/20 p-3">
+          {SIM_STEPS.slice(0, simStep).map((s, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs" style={{ animation: "fadeIn 0.3s ease-out" }}>
+              <svg className="h-3 w-3 text-[#10B981]" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
+              <span className="text-[#E2E8F0]">{s}</span>
+            </div>
+          ))}
+          {simStep < SIM_STEPS.length && (
+            <div className="flex items-center gap-2 text-xs text-[#8B5CF6]">
+              <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
+              {SIM_STEPS[simStep]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {simResult && (
+        <div className="space-y-3">
+          <div className="rounded-lg bg-[#0A0F1A] border border-[#1E293B] p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className={`rounded px-2 py-0.5 text-xs font-bold ${simResult.action === "LONG" ? "bg-[#10B981]/10 text-[#10B981]" : "bg-[#F43F5E]/10 text-[#F43F5E]"}`}>{simResult.action}</span>
+              <span className="font-mono text-xs text-[#00E5FF]">{(simResult.confidence * 100).toFixed(0)}% conf</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div><p className="text-[10px] text-[#94A3B8]">Entry</p><p className="font-mono text-xs text-[#F8FAFC]">${simResult.entry.toFixed(2)}</p></div>
+              <div><p className="text-[10px] text-[#94A3B8]">Stop</p><p className="font-mono text-xs text-[#F43F5E]">${simResult.sl.toFixed(2)}</p></div>
+              <div><p className="text-[10px] text-[#94A3B8]">Target</p><p className="font-mono text-xs text-[#10B981]">${simResult.tp.toFixed(2)}</p></div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => { onAiTrade(simResult.action === "LONG" ? "buy" : "sell", 100); setSimResult(null); }} className="rounded-lg bg-[#00E5FF]/10 border border-[#00E5FF]/30 py-2 text-xs font-bold text-[#00E5FF] hover:bg-[#00E5FF]/20 transition-all">Execute $100</button>
+            <button onClick={() => { setSimResult(null); }} className="rounded-lg bg-[#1A2340] py-2 text-xs font-medium text-[#94A3B8] hover:text-[#E2E8F0] transition-all">Dismiss</button>
+          </div>
+        </div>
+      )}
+
+      <p className="text-[10px] text-[#475569] text-center mt-auto">Real Hyperliquid prices, simulated execution</p>
+      <style jsx>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
 }
@@ -241,7 +310,7 @@ export default function DemoPage() {
           <TradeForm balance={displayAccount.currentBalance} placing={placing} error={placing ? error : null} onPlace={(coin, side, sz, type, price) => { setSelectedCoin(coin); placeTrade({ coin, side, sizeUsd: sz, orderType: type, price }); }} />
         </div>
         <div className="rounded-xl border border-[#1E293B] bg-[#0F1629] transition-all duration-200">
-          <MarketInfo coin={selectedCoin} positions={positions} />
+          <MarketInfo coin={selectedCoin} positions={positions} onAiTrade={(side, size) => placeTrade({ coin: selectedCoin, side, sizeUsd: size, orderType: "market" })} />
         </div>
       </div>
       <PositionsTable positions={positions} onClose={closePosition} />
