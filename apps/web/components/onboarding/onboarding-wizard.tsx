@@ -207,7 +207,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         {screen === "character" && (
           <div className="relative w-full overflow-hidden rounded-2xl border border-[#00E5FF]/20 bg-[#0F1629]/90 p-6 backdrop-blur-xl sm:p-8 shadow-[0_0_40px_rgba(0,229,255,0.08)]">
             {/* Animated border shimmer */}
-            <div className="absolute inset-0 rounded-2xl" style={{ background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.1), transparent)", backgroundSize: "200% 100%", animation: "shimmer-move 3s linear infinite" }} />
+            <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.1), transparent)", backgroundSize: "200% 100%", animation: "shimmer-move 3s linear infinite" }} />
 
             <h1 className="relative text-center text-3xl font-black" style={{ background: "linear-gradient(90deg, #00E5FF, #8B5CF6, #00E5FF)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer-move 3s linear infinite" }}>
               Welcome to Zelkora
@@ -324,7 +324,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   >
                     {/* Energy wave on complete */}
                     {status === "complete" && (
-                      <div className="absolute inset-0 rounded-xl" style={{ background: `linear-gradient(90deg, transparent, ${borderColor}20, transparent)`, animation: "energy-wave 1.5s ease forwards" }} />
+                      <div className="pointer-events-none absolute inset-0 rounded-xl" style={{ background: `linear-gradient(90deg, transparent, ${borderColor}20, transparent)`, animation: "energy-wave 1.5s ease forwards" }} />
                     )}
                     {/* Icon */}
                     <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", status === "complete" ? "bg-[#10B981]/10" : "bg-[#1A2340]")}>
