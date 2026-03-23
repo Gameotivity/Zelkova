@@ -117,7 +117,7 @@ function ToastPopups({ trades }: { trades: ReturnType<typeof generateTrades> }) 
       const id = Date.now();
       setToasts((prev) => [...prev.slice(-2), { id, trade }]);
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
-    }, 2500);
+    }, 2000);
     return () => clearInterval(interval);
   }, [trades]);
 
@@ -126,7 +126,7 @@ function ToastPopups({ trades }: { trades: ReturnType<typeof generateTrades> }) 
       {toasts.map((t) => (
         <div key={t.id} className="animate-fade-in-up rounded-xl border border-[#10B981]/20 bg-[#0F1629]/95 px-4 py-3 shadow-2xl backdrop-blur-lg" style={{ animationDuration: "0.3s" }}>
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#10B981]/10">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#10B981]/10">
               <Icon d={icons.trending} className="h-4 w-4 text-[#10B981]" />
             </div>
             <div>
@@ -148,8 +148,8 @@ function SignalFlashes() {
       const coin = COINS[Math.floor(Math.random() * COINS.length)];
       const action = Math.random() > 0.4 ? "BUY" : "SELL";
       setSignal({ coin, action, visible: true });
-      setTimeout(() => setSignal((s) => s ? { ...s, visible: false } : null), 2000);
-    }, 4000);
+      setTimeout(() => setSignal((s) => s ? { ...s, visible: false } : null), 1800);
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -164,6 +164,58 @@ function SignalFlashes() {
           <span className="text-xs font-bold text-white">{signal.coin}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FOMOBanner() {
+  const [online, setOnline] = useState(847);
+  const [spots, setSpots] = useState(23);
+  const [deployed, setDeployed] = useState(0);
+
+  useEffect(() => {
+    // Fluctuate "online now" count
+    const onlineInterval = setInterval(() => {
+      setOnline((o) => o + Math.floor(Math.random() * 7) - 2);
+    }, 3000);
+    // Decrease "spots remaining"
+    const spotsInterval = setInterval(() => {
+      setSpots((s) => Math.max(3, s - (Math.random() > 0.6 ? 1 : 0)));
+    }, 8000);
+    // "Bot deployed" counter
+    const deployInterval = setInterval(() => {
+      setDeployed((d) => d + 1);
+    }, 12000);
+    return () => { clearInterval(onlineInterval); clearInterval(spotsInterval); clearInterval(deployInterval); };
+  }, []);
+
+  return (
+    <div className="fixed bottom-6 left-6 z-40 hidden flex-col gap-2 pointer-events-none lg:flex">
+      {/* Online now */}
+      <div className="rounded-lg border border-[#00E5FF]/20 bg-[#06080E]/90 px-3 py-2 backdrop-blur-lg">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2"><span className="absolute h-full w-full animate-ping rounded-full bg-[#10B981] opacity-75" /><span className="relative h-2 w-2 rounded-full bg-[#10B981]" /></span>
+          <span className="font-mono text-xs font-bold text-[#10B981]">{online}</span>
+          <span className="text-[10px] text-[#94A3B8]">traders online now</span>
+        </div>
+      </div>
+      {/* Spots remaining */}
+      <div className="rounded-lg border border-[#F59E0B]/20 bg-[#06080E]/90 px-3 py-2 backdrop-blur-lg">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs font-bold text-[#F59E0B]">{spots}</span>
+          <span className="text-[10px] text-[#94A3B8]">free bot slots remaining</span>
+        </div>
+      </div>
+      {/* Recently deployed */}
+      {deployed > 0 && (
+        <div className="animate-fade-in-up rounded-lg border border-[#8B5CF6]/20 bg-[#06080E]/90 px-3 py-2 backdrop-blur-lg" style={{ animationDuration: "0.3s" }}>
+          <div className="flex items-center gap-2">
+            <Icon d={icons.bolt} className="h-3 w-3 text-[#8B5CF6]" />
+            <span className="text-[10px] text-[#94A3B8]">Bot deployed</span>
+            <span className="font-mono text-[10px] font-bold text-[#8B5CF6]">{deployed}s ago</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -214,14 +266,14 @@ function LiveProfitFeed({ trades }: { trades: ReturnType<typeof generateTrades> 
   const t = trades[current];
   if (!t) return null;
   return (
-    <div className="overflow-hidden rounded-full border border-[#10B981]/20 bg-[#10B981]/5 px-5 py-2.5">
-      <div key={current} className="flex items-center gap-3 animate-fade-in-up" style={{ animationDuration: "0.3s" }}>
-        <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10B981] opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[#10B981]" /></span>
-        <span className="text-xs text-[#94A3B8]">{t.addr}</span>
-        <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", t.side === "LONG" ? "bg-[#10B981]/10 text-[#10B981]" : "bg-[#F43F5E]/10 text-[#F43F5E]")}>{t.side}</span>
+    <div className="mx-auto max-w-md overflow-hidden rounded-full border border-[#10B981]/20 bg-[#10B981]/5 px-4 py-2 sm:px-5 sm:py-2.5">
+      <div key={current} className="flex items-center justify-center gap-2 sm:gap-3 animate-fade-in-up" style={{ animationDuration: "0.3s" }}>
+        <span className="relative flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10B981] opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[#10B981]" /></span>
+        <span className="hidden text-xs text-[#94A3B8] sm:inline">{t.addr}</span>
+        <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold", t.side === "LONG" ? "bg-[#10B981]/10 text-[#10B981]" : "bg-[#F43F5E]/10 text-[#F43F5E]")}>{t.side}</span>
         <span className="text-xs font-bold text-white">{t.coin}</span>
         <span className="font-mono text-sm font-black text-[#10B981]">+${t.pnl.toLocaleString()}</span>
-        <span className="text-[10px] text-[#475569]">{t.agoStr}</span>
+        <span className="hidden text-[10px] text-[#475569] sm:inline">{t.agoStr}</span>
       </div>
     </div>
   );
@@ -290,8 +342,8 @@ function useLivePrices() {
           const data = await res.json();
           if (data.tickers) setPrices(data.tickers.map((t: Record<string, unknown>) => ({
             symbol: String(t.symbol || "").replace("USDT", ""),
-            price: Number(t.price || 0),
-            change: Number(t.changePercent || 0),
+            price: Number(t.lastPrice || t.price || 0),
+            change: Number(t.priceChangePercent || t.changePercent || 0),
           })));
         }
       } catch { /* silent on landing */ }
@@ -431,6 +483,7 @@ export default function HomePage() {
       <Nav />
       {mounted && <ToastPopups trades={trades} />}
       {mounted && <SignalFlashes />}
+      {mounted && <FOMOBanner />}
 
       {/* Live Ticker Bar */}
       {mounted && (
