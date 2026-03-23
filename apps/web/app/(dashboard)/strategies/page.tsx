@@ -1,111 +1,190 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { StrategyPipeline } from "@/components/dashboard/strategy-pipeline";
+import type { HyperAlphaResult } from "@/lib/ai/types";
+
+const TICKERS = ["BTC", "ETH", "SOL", "AVAX", "ARB", "OP", "DOGE", "LINK", "WIF", "PEPE", "INJ", "TIA", "SUI", "SEI", "JTO"];
 
 export default function StrategiesPage() {
+  const [ticker, setTicker] = useState("BTC");
+  const [result, setResult] = useState<HyperAlphaResult | null>(null);
+  const [showExecute, setShowExecute] = useState(false);
+  const [showAgent, setShowAgent] = useState(false);
+  const [filter, setFilter] = useState("");
+
+  const filteredTickers = filter
+    ? TICKERS.filter((t) => t.toLowerCase().includes(filter.toLowerCase()))
+    : TICKERS;
+
+  const handleResult = useCallback((r: HyperAlphaResult) => {
+    setResult(r);
+  }, []);
+
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[#F8FAFC]">AI Strategy Engine</h1>
-        <p className="text-sm text-[#94A3B8]">
-          Visualize how HyperAlpha processes market data through 7 independent AI layers before executing any trade
-        </p>
+    <div className="mx-auto max-w-5xl space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="font-mono text-2xl font-bold tracking-tight text-[#F8FAFC]">AI STRATEGY ENGINE</h1>
+            <span className="rounded border border-[#00E5FF]/20 bg-[#00E5FF]/10 px-2 py-0.5 font-mono text-[10px] font-bold text-[#00E5FF]">LIVE</span>
+          </div>
+          <p className="mt-1 font-mono text-xs text-[#94A3B8]">Select a token and run the 7-layer AI pipeline</p>
+        </div>
       </div>
 
-      {/* Architecture Overview */}
-      <div className="rounded-xl border border-[#1E293B] bg-[#0F1629] p-5">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#8B5CF6]/10">
-            <svg className="h-5 w-5 text-[#8B5CF6]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-[#F8FAFC]">How HyperAlpha Thinks</h2>
-            <p className="mt-1 text-sm text-[#E2E8F0]/70">
-              Every trade decision passes through a 7-layer pipeline inspired by institutional trading desks.
-              Four AI analysts examine different market dimensions simultaneously. A Bull vs Bear debate
-              stress-tests the thesis. Three pure-math strategies provide independent validation.
-              A trader synthesizes signals, a risk manager can VETO any trade, and a fund manager
-              makes the final approve/reject decision. No single point of failure.
-            </p>
-          </div>
+      {/* Ticker Selector */}
+      <div className="rounded-xl border border-[#1E293B] bg-[#0F1629] p-4">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="font-mono text-xs font-bold text-[#94A3B8]">SELECT TOKEN</span>
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search..."
+            className="rounded-lg border border-[#1E293B] bg-[#06080E] px-3 py-1 font-mono text-xs text-[#F8FAFC] placeholder-[#475569] outline-none focus:border-[#00E5FF]/50"
+          />
         </div>
-
-        {/* Flow Diagram Mini */}
-        <div className="mt-5 flex items-center justify-center gap-1 overflow-x-auto pb-2">
-          {[
-            { name: "Data", color: "#00E5FF" },
-            { name: "Analysts", color: "#8B5CF6" },
-            { name: "Debate", color: "#F59E0B" },
-            { name: "Stat Arb", color: "#10B981" },
-            { name: "Trader", color: "#00E5FF" },
-            { name: "Risk", color: "#F43F5E" },
-            { name: "Fund Mgr", color: "#8B5CF6" },
-          ].map((step, i) => (
-            <div key={step.name} className="flex items-center gap-1">
-              <div
-                className="whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-semibold"
-                style={{
-                  background: `${step.color}15`,
-                  color: step.color,
-                  border: `1px solid ${step.color}30`,
-                }}
-              >
-                L{i + 1}: {step.name}
-              </div>
-              {i < 6 && (
-                <svg className="h-3 w-3 flex-shrink-0 text-[#94A3B8]/40" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                </svg>
-              )}
-            </div>
+        <div className="flex flex-wrap gap-2">
+          {filteredTickers.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTicker(t)}
+              className="rounded-lg border px-3 py-1.5 font-mono text-xs font-bold transition-all duration-200"
+              style={{
+                borderColor: ticker === t ? "#00E5FF" : "#1E293B",
+                background: ticker === t ? "#00E5FF10" : "transparent",
+                color: ticker === t ? "#00E5FF" : "#94A3B8",
+                boxShadow: ticker === t ? "0 0 15px rgba(0,229,255,0.1)" : "none",
+              }}
+            >
+              {t}
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Main Pipeline Visualization */}
-      <StrategyPipeline />
+      {/* Pipeline */}
+      <StrategyPipeline ticker={ticker} onResult={handleResult} />
 
-      {/* Safety Guarantees */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-[#F43F5E]/20 bg-[#F43F5E]/5 p-4">
-          <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-[#F43F5E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
-            <h3 className="text-sm font-bold text-[#F43F5E]">Circuit Breakers</h3>
-          </div>
-          <p className="mt-2 text-xs text-[#E2E8F0]/60">
-            Daily loss &gt; 5% auto-pauses agent. Portfolio drop &gt; 15% in 24h pauses ALL agents globally.
-          </p>
+      {/* Action Buttons (show after result) */}
+      {result && (
+        <div className="flex gap-3">
+          {result.approved && (
+            <button
+              onClick={() => setShowExecute(true)}
+              className="flex-1 rounded-xl border border-[#00E5FF]/30 bg-[#00E5FF]/10 py-3 font-mono text-sm font-bold text-[#00E5FF] transition-all hover:bg-[#00E5FF]/20 hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]"
+            >
+              EXECUTE TRADE
+            </button>
+          )}
+          <button
+            onClick={() => setShowAgent(true)}
+            className="flex-1 rounded-xl border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 py-3 font-mono text-sm font-bold text-[#8B5CF6] transition-all hover:bg-[#8B5CF6]/20 hover:shadow-[0_0_30px_rgba(139,92,246,0.15)]"
+          >
+            CREATE AGENT
+          </button>
         </div>
+      )}
 
-        <div className="rounded-xl border border-[#F59E0B]/20 bg-[#F59E0B]/5 p-4">
-          <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-[#F59E0B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-            <h3 className="text-sm font-bold text-[#F59E0B]">Hard Limits</h3>
-          </div>
-          <p className="mt-2 text-xs text-[#E2E8F0]/60">
-            No trade without stop-loss. Max 25% equity per position. Leverage capped per user settings. Non-custodial always.
-          </p>
-        </div>
+      {/* Full Report (expandable) */}
+      {result && (
+        <details className="group rounded-xl border border-[#1E293B] bg-[#0A0F1A]">
+          <summary className="cursor-pointer px-4 py-3 font-mono text-xs font-bold text-[#94A3B8] transition-colors hover:text-[#F8FAFC]">
+            VIEW FULL REPORT
+          </summary>
+          <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-[#1E293B] p-4 font-mono text-[11px] text-[#E2E8F0]/70">
+            {result.report}
+          </pre>
+        </details>
+      )}
 
-        <div className="rounded-xl border border-[#10B981]/20 bg-[#10B981]/5 p-4">
-          <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-[#10B981]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-            </svg>
-            <h3 className="text-sm font-bold text-[#10B981]">Risk Manager VETO</h3>
+      {/* Execute Trade Modal */}
+      {showExecute && result && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowExecute(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-[#1E293B] bg-[#0F1629] p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-mono text-lg font-bold text-[#F8FAFC]">CONFIRM TRADE</h3>
+            <div className="mt-4 space-y-2 font-mono text-xs text-[#E2E8F0]">
+              <div className="flex justify-between"><span className="text-[#94A3B8]">Action</span><span className={result.action === "long" ? "text-[#10B981]" : "text-[#F43F5E]"}>{result.action.toUpperCase()}</span></div>
+              <div className="flex justify-between"><span className="text-[#94A3B8]">Ticker</span><span>{result.ticker}-PERP</span></div>
+              {result.entry_price && <div className="flex justify-between"><span className="text-[#94A3B8]">Entry</span><span>${result.entry_price.toLocaleString()}</span></div>}
+              {result.stop_loss && <div className="flex justify-between"><span className="text-[#94A3B8]">Stop Loss</span><span className="text-[#F43F5E]">${result.stop_loss.toLocaleString()}</span></div>}
+              {result.take_profit && <div className="flex justify-between"><span className="text-[#94A3B8]">Take Profit</span><span className="text-[#10B981]">${result.take_profit.toLocaleString()}</span></div>}
+              {result.size_usd && <div className="flex justify-between"><span className="text-[#94A3B8]">Size</span><span>${result.size_usd.toLocaleString()}</span></div>}
+              {result.leverage && <div className="flex justify-between"><span className="text-[#94A3B8]">Leverage</span><span className="text-[#00E5FF]">{result.leverage}x</span></div>}
+            </div>
+            <p className="mt-4 font-mono text-[10px] text-[#F59E0B]">
+              Requires API wallet delegation. Connect your wallet and approve the agent wallet first.
+            </p>
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => setShowExecute(false)} className="flex-1 rounded-lg border border-[#1E293B] py-2 font-mono text-xs text-[#94A3B8] hover:border-[#94A3B8]/50">CANCEL</button>
+              <button
+                onClick={() => {
+                  alert("Trade execution requires API wallet setup. Connect your wallet first.");
+                  setShowExecute(false);
+                }}
+                className="flex-1 rounded-lg bg-[#00E5FF]/20 py-2 font-mono text-xs font-bold text-[#00E5FF] hover:bg-[#00E5FF]/30"
+              >
+                EXECUTE
+              </button>
+            </div>
           </div>
-          <p className="mt-2 text-xs text-[#E2E8F0]/60">
-            Independent risk agent can reject any trade regardless of upstream consensus. Cannot be overridden by other layers.
-          </p>
         </div>
-      </div>
+      )}
+
+      {/* Create Agent Modal */}
+      {showAgent && result && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAgent(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-[#1E293B] bg-[#0F1629] p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-mono text-lg font-bold text-[#F8FAFC]">CREATE AI AGENT</h3>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="font-mono text-[10px] text-[#94A3B8]">AGENT NAME</label>
+                <input defaultValue={`HyperAlpha ${result.ticker}`} className="mt-1 w-full rounded-lg border border-[#1E293B] bg-[#06080E] px-3 py-2 font-mono text-xs text-[#F8FAFC] outline-none focus:border-[#8B5CF6]/50" />
+              </div>
+              <div>
+                <label className="font-mono text-[10px] text-[#94A3B8]">SCHEDULE</label>
+                <select defaultValue="4h" className="mt-1 w-full rounded-lg border border-[#1E293B] bg-[#06080E] px-3 py-2 font-mono text-xs text-[#F8FAFC] outline-none">
+                  <option value="1h">Every 1 hour</option>
+                  <option value="4h">Every 4 hours</option>
+                  <option value="8h">Every 8 hours</option>
+                  <option value="1d">Once daily</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-mono text-[10px] text-[#94A3B8]">MODE</label>
+                <div className="mt-1 flex gap-2">
+                  <button className="flex-1 rounded-lg border border-[#F59E0B]/30 bg-[#F59E0B]/10 py-2 font-mono text-xs font-bold text-[#F59E0B]">PAPER</button>
+                  <button className="flex-1 rounded-lg border border-[#1E293B] py-2 font-mono text-xs text-[#94A3B8]">LIVE</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-mono text-[10px] text-[#94A3B8]">STOP LOSS %</label>
+                  <input type="number" defaultValue={2} className="mt-1 w-full rounded-lg border border-[#1E293B] bg-[#06080E] px-3 py-2 font-mono text-xs text-[#F8FAFC] outline-none" />
+                </div>
+                <div>
+                  <label className="font-mono text-[10px] text-[#94A3B8]">MAX DAILY LOSS %</label>
+                  <input type="number" defaultValue={5} className="mt-1 w-full rounded-lg border border-[#1E293B] bg-[#06080E] px-3 py-2 font-mono text-xs text-[#F8FAFC] outline-none" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => setShowAgent(false)} className="flex-1 rounded-lg border border-[#1E293B] py-2 font-mono text-xs text-[#94A3B8] hover:border-[#94A3B8]/50">CANCEL</button>
+              <button
+                onClick={() => {
+                  alert("Agent created in paper mode. It will run HyperAlpha analysis on schedule.");
+                  setShowAgent(false);
+                }}
+                className="flex-1 rounded-lg bg-[#8B5CF6]/20 py-2 font-mono text-xs font-bold text-[#8B5CF6] hover:bg-[#8B5CF6]/30"
+              >
+                CREATE AGENT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

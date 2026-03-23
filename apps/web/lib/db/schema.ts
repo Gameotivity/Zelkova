@@ -537,6 +537,36 @@ export const xpEvents = pgTable(
   ],
 );
 
+// Analysis Runs — stores HyperAlpha pipeline results
+export const analysisRuns = pgTable(
+  "analysis_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id").references(() => agents.id),
+    ticker: text("ticker").notNull(),
+    action: text("action").notNull(), // long, short, hold, close
+    confidence: real("confidence").notNull(),
+    entryPrice: real("entry_price"),
+    stopLoss: real("stop_loss"),
+    takeProfit: real("take_profit"),
+    sizeUsd: real("size_usd"),
+    leverage: real("leverage"),
+    approved: boolean("approved").notNull(),
+    signalAlignment: integer("signal_alignment").default(0).notNull(),
+    riskScore: real("risk_score").default(0).notNull(),
+    report: text("report").notNull(),
+    errors: jsonb("errors").$type<string[]>().default([]),
+    executedTradeId: uuid("executed_trade_id").references(() => trades.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("analysis_runs_user_idx").on(table.userId),
+    index("analysis_runs_ticker_idx").on(table.ticker),
+    index("analysis_runs_created_idx").on(table.createdAt),
+  ],
+);
+
 // Audit Log
 export const auditLog = pgTable(
   "audit_log",
