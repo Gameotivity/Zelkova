@@ -448,13 +448,13 @@ function Nav() {
         <div className="hidden items-center gap-8 md:flex">
           <Link href="#pipeline" className="text-sm text-[#94A3B8] transition-colors hover:text-white">How It Works</Link>
           <Link href="#performance" className="text-sm text-[#94A3B8] transition-colors hover:text-white">Performance</Link>
-          <Link href="/pricing" className="text-sm text-[#00E5FF] font-semibold transition-colors hover:text-white">Pricing</Link>
           <Link href="#security" className="text-sm text-[#94A3B8] transition-colors hover:text-white">Security</Link>
+          <Link href="/pricing" className="text-sm text-[#00E5FF] font-semibold transition-colors hover:text-white">Pricing</Link>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="text-sm font-medium text-[#E2E8F0] hover:text-white">Log in</Link>
-          <Link href="/register" className="rounded-lg bg-[#00E5FF] px-5 py-2 text-sm font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/25 hover:-translate-y-0.5">Start Trading</Link>
-        </div>
+        <Link href="/dashboard" className="flex items-center gap-2 rounded-lg bg-[#00E5FF] px-5 py-2 text-sm font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/25 hover:-translate-y-0.5">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" /></svg>
+          Connect Wallet
+        </Link>
       </div>
     </nav>
   );
@@ -516,7 +516,7 @@ export default function HomePage() {
           </p>
 
           <div className="mt-10 flex animate-fade-in-up stagger-3 flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href="/register" className="group relative rounded-xl bg-[#00E5FF] px-12 py-4 text-base font-black text-[#06080E] animate-glow-pulse hover:-translate-y-1">
+            <Link href="/dashboard" className="group relative rounded-xl bg-[#00E5FF] px-12 py-4 text-base font-black text-[#06080E] animate-glow-pulse hover:-translate-y-1">
               Start Making Money
               <div className="absolute inset-0 rounded-xl bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
             </Link>
@@ -644,7 +644,7 @@ export default function HomePage() {
             <span className="animate-shimmer bg-gradient-to-r from-[#00E5FF] via-[#10B981] to-[#00E5FF] bg-clip-text text-transparent" style={{ backgroundSize: "200% auto" }}>Start Collecting Profits.</span>
           </h2>
           <p className="mt-6 text-lg text-[#94A3B8]">Join thousands of traders who let AI do the heavy lifting.</p>
-          <Link href="/register" className="mt-10 inline-flex rounded-xl bg-[#00E5FF] px-14 py-5 text-lg font-black text-[#06080E] animate-glow-pulse hover:-translate-y-1">
+          <Link href="/dashboard" className="mt-10 inline-flex rounded-xl bg-[#00E5FF] px-14 py-5 text-lg font-black text-[#06080E] animate-glow-pulse hover:-translate-y-1">
             Deploy Your AI Trading Bot - Free
           </Link>
           <p className="mt-4 text-xs text-[#475569]">No credit card required. Non-custodial. Withdraw anytime.</p>
