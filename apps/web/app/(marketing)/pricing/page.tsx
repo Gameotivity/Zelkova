@@ -146,6 +146,12 @@ export default function PricingPage() {
       <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-[#06080E]/95 backdrop-blur-2xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-1"><span className="text-xl font-black text-[#00E5FF]">Zelkora</span><span className="text-sm font-medium text-[#94A3B8]">.ai</span></Link>
+          <div className="hidden items-center gap-8 md:flex">
+            <Link href="/#pipeline" className="text-sm text-[#94A3B8] transition-colors hover:text-white">How It Works</Link>
+            <Link href="/#performance" className="text-sm text-[#94A3B8] transition-colors hover:text-white">Performance</Link>
+            <Link href="/pricing" className="text-sm text-[#00E5FF] font-semibold">Pricing</Link>
+            <Link href="/#security" className="text-sm text-[#94A3B8] transition-colors hover:text-white">Security</Link>
+          </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="text-sm font-medium text-[#E2E8F0] hover:text-white">Log in</Link>
             <Link href="/register" className="rounded-lg bg-[#00E5FF] px-5 py-2 text-sm font-bold text-[#06080E] hover:shadow-lg hover:shadow-[#00E5FF]/25">Start Trading</Link>
