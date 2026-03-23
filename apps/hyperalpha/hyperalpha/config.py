@@ -39,11 +39,11 @@ class Settings(BaseSettings):
     max_portfolio_drawdown_pct: float = Field(10, env="MAX_PORTFOLIO_DRAWDOWN_PCT")
     max_single_trade_risk_pct: float = Field(2, env="MAX_SINGLE_TRADE_RISK_PCT")
     max_correlation_exposure: float = Field(0.7, env="MAX_CORRELATION_EXPOSURE")
-    max_leverage: float = Field(1.0, env="MAX_LEVERAGE")
+    max_leverage: float = Field(3.0, env="MAX_LEVERAGE")
 
     # Agent Config
-    max_debate_rounds: int = Field(3, env="MAX_DEBATE_ROUNDS")
-    confidence_threshold: float = Field(0.7, env="CONFIDENCE_THRESHOLD")
+    max_debate_rounds: int = Field(2, env="MAX_DEBATE_ROUNDS")
+    confidence_threshold: float = Field(0.5, env="CONFIDENCE_THRESHOLD")
 
     # Network
     hl_request_timeout: int = Field(15, env="HL_REQUEST_TIMEOUT")

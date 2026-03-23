@@ -219,6 +219,13 @@ def format_decision_report(state: HyperAlphaState) -> str:
     rec = decision.recommendation if decision and decision.recommendation else None
     risk = decision.risk_assessment if decision and decision.risk_assessment else None
 
+    # Extract live price from market data
+    md = state.get("market_data", {})
+    mid_price = md.get("mid_price", 0)
+    funding = md.get("funding_rate", 0)
+    oi = md.get("open_interest", 0)
+    vol = md.get("volume_24h", 0)
+
     lines = [
         f"{'=' * 50}",
         f"  HYPERALPHA — TRADE REPORT",
@@ -226,6 +233,11 @@ def format_decision_report(state: HyperAlphaState) -> str:
         f"  Run: {state.get('run_id', 'N/A')}",
         f"  Time: {state.get('timestamp', 'N/A')}",
         f"{'=' * 50}",
+        f"\n LIVE MARKET DATA:",
+        f"  Price: ${mid_price:,.2f}" if mid_price else "  Price: N/A",
+        f"  Funding Rate: {funding:.6f}" if funding else "  Funding: N/A",
+        f"  Open Interest: ${oi:,.0f}" if oi else "  OI: N/A",
+        f"  24h Volume: ${vol:,.0f}" if vol else "  Volume: N/A",
     ]
 
     # Analyst signals
@@ -272,6 +284,9 @@ def format_decision_report(state: HyperAlphaState) -> str:
         lines.append(f"  Confidence: {rec.confidence:.0%}")
         if rec.time_horizon: lines.append(f"  Time Horizon: {rec.time_horizon}")
         lines.append(f"  Signal Alignment: {rec.signal_alignment}/4 analysts")
+        if hasattr(rec, 'reasoning') and rec.reasoning:
+            lines.append(f"\n TRADE THESIS:")
+            lines.append(f"  {rec.reasoning}")
 
     # Risk
     if risk:

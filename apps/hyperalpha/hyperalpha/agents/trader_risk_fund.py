@@ -363,10 +363,16 @@ def _build_trader_prompt(
     current_price = market_data.get("current_price", "N/A")
     atr = market_data.get("atr_14", "N/A")
 
-    return f"""You are the HEAD TRADER at the HyperAlpha trading desk.
+    return f"""You are the HEAD TRADER at the HyperAlpha HFT trading desk.
+You are AGGRESSIVE and DECISIVE. Your job is to find alpha and take positions.
+HOLD is only acceptable when signals genuinely conflict (2 buy, 2 sell).
+If 3+ analysts agree on a direction, you MUST take that trade.
+If the debate consensus has a clear winner, you MUST follow it.
+You are paid to make money, not to sit on the sidelines.
+
 Synthesize ALL inputs into a single trade recommendation for {ticker}.
 
-== MARKET DATA ==
+== LIVE MARKET DATA ==
 Current Price: {current_price}
 ATR(14): {atr}
 
@@ -415,7 +421,14 @@ SIZE_USD: <dollar amount>
 LEVERAGE: <multiplier, e.g. 1.5>
 CONFIDENCE: <0.0 to 1.0>
 TIME_HORIZON: <e.g. "4-8 hours", "1-3 days">
-REASONING: <2-3 sentences explaining the trade thesis>"""
+REASONING: <3-5 sentences explaining WHY this trade, what catalyst you see, what the risk is, and what would invalidate the thesis>
+
+CRITICAL RULES:
+- If 3+ analysts say BUY, your ACTION must be LONG (not HOLD)
+- If 3+ analysts say SELL, your ACTION must be SHORT (not HOLD)
+- ALWAYS provide exact entry_price (use current market price), stop_loss, and take_profit
+- NEVER output ACTION: hold if there is a clear directional bias
+- The REASONING must explain the specific edge you see in this trade"""
 
 
 def _parse_trade_recommendation(
@@ -465,7 +478,8 @@ def _parse_trade_recommendation(
             max(0.0, _extract_float(r"CONFIDENCE\s*[:=]\s*([\d.]+)", 0.5) or 0.5),
         ),
         reasoning=_extract(
-            r"REASONING\s*[:=]\s*(.*?)$", "No reasoning parsed."
+            r"REASONING\s*[:=]\s*(.+(?:\n(?!(?:ACTION|ENTRY|STOP|TAKE|SIZE|LEVERAGE|CONFIDENCE|TIME|CRITICAL)).+)*)",
+            "No reasoning parsed."
         ),
         time_horizon=_extract(r"TIME_HORIZON\s*[:=]\s*(.*?)(?:\n|$)", ""),
         signal_alignment=alignment_score,
