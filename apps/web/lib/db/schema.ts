@@ -452,6 +452,91 @@ export const feeLedger = pgTable(
   ],
 );
 
+// Referral Codes — each user gets a unique invite code
+export const referralCodes = pgTable(
+  "referral_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    code: text("code").notNull().unique(), // e.g. "ZELK-A3F8"
+    uses: integer("uses").default(0).notNull(),
+    maxUses: integer("max_uses"), // null = unlimited
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("referral_codes_code_idx").on(table.code),
+    index("referral_codes_user_idx").on(table.userId),
+  ],
+);
+
+// Referrals — tracks who referred whom
+export const referrals = pgTable(
+  "referrals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    referrerId: uuid("referrer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    refereeId: uuid("referee_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(), // each user can only be referred once
+    code: text("code").notNull(), // the code that was used
+    commissionRate: real("commission_rate").default(0.20).notNull(), // 20%
+    totalCommissionEarned: real("total_commission_earned").default(0).notNull(),
+    status: text("status").notNull().default("active"), // active, churned
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("referrals_referrer_idx").on(table.referrerId),
+    index("referrals_referee_idx").on(table.refereeId),
+    index("referrals_code_idx").on(table.code),
+  ],
+);
+
+// User XP — gamification progress
+export const userXp = pgTable(
+  "user_xp",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    totalXp: integer("total_xp").default(0).notNull(),
+    level: integer("level").default(1).notNull(),
+    questsCompleted: jsonb("quests_completed").$type<string[]>().default([]),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("user_xp_user_idx").on(table.userId),
+    index("user_xp_level_idx").on(table.level),
+  ],
+);
+
+// XP Events — log of every XP-earning action (idempotency key = userId + eventType)
+export const xpEvents = pgTable(
+  "xp_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(), // WALLET_CONNECTED, FIRST_TRADE, etc.
+    xpEarned: integer("xp_earned").notNull(),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("xp_events_user_idx").on(table.userId),
+    index("xp_events_type_idx").on(table.eventType),
+    uniqueIndex("xp_events_idempotent_idx").on(table.userId, table.eventType),
+  ],
+);
+
 // Audit Log
 export const auditLog = pgTable(
   "audit_log",

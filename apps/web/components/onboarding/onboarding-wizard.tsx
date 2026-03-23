@@ -1,277 +1,406 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAccount, useSwitchChain } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { arbitrum } from "wagmi/chains";
 import { useWalletAuth } from "@/lib/wallet/use-wallet-auth";
 import { cn } from "@/lib/utils/cn";
+import {
+  ONBOARDING_QUESTS,
+  LEVELS,
+  getLevelForXp,
+  getXpProgress,
+  getNextLevel,
+  AVATAR_COLORS,
+  BADGES,
+} from "@/lib/gamification/xp-engine";
 
 interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-const STEPS = [
-  { id: "welcome", title: "Welcome to Zelkora" },
-  { id: "connect", title: "Connect Wallet" },
-  { id: "network", title: "Switch Network" },
-  { id: "ready", title: "You're Ready" },
-];
+type Screen = "character" | "quests" | "celebration";
+
+function randomTag(): string {
+  return "trader_" + Math.random().toString(36).slice(2, 6);
+}
+
+const CSS_ANIM = `
+@keyframes xpPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+@keyframes xpFloat { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-48px)} }
+@keyframes confettiRise { 0%{opacity:1;transform:translateY(0) rotate(0)} 100%{opacity:0;transform:translateY(-220px) rotate(360deg)} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes glow { 0%,100%{box-shadow:0 0 8px currentColor} 50%{box-shadow:0 0 24px currentColor} }
+@keyframes countUp { from{opacity:0;transform:scale(.6)} to{opacity:1;transform:scale(1)} }
+`;
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const [step, setStep] = useState(0);
+  const [screen, setScreen] = useState<Screen>("character");
+  const [username, setUsername] = useState(randomTag());
+  const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0].id);
+  const [referral, setReferral] = useState("");
+  const [completed, setCompleted] = useState<Set<string>>(new Set());
+  const [xp, setXp] = useState(0);
+  const [xpDelta, setXpDelta] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [profileSet, setProfileSet] = useState(false);
+
   const { isConnected, address, chainId } = useAccount();
   const { switchChain } = useSwitchChain();
   const { user, authenticate, isAuthenticating } = useWalletAuth();
 
   const isArbitrum = chainId === arbitrum.id;
+  const level = getLevelForXp(xp);
+  const progress = getXpProgress(xp);
+  const nextLvl = getNextLevel(level.level);
+  const founderBadge = BADGES.find((b) => b.id === "founder");
+  const myReferralCode = address ? address.slice(2, 10).toUpperCase() : "ZELK0000";
 
-  // Auto-advance when wallet connects
-  useEffect(() => {
-    if (isConnected && address && step === 1) {
-      setStep(2);
-    }
-  }, [isConnected, address, step]);
+  const awardQuest = useCallback(
+    (questId: string) => {
+      if (completed.has(questId)) return;
+      const quest = ONBOARDING_QUESTS.find((q) => q.id === questId);
+      if (!quest) return;
+      setCompleted((prev) => new Set(prev).add(questId));
+      setXp((prev) => prev + quest.xp);
+      setXpDelta(quest.xp);
+      setTimeout(() => setXpDelta(null), 1200);
+    },
+    [completed],
+  );
 
-  // Auto-advance when network is correct
+  // Auto-detect wallet connection
   useEffect(() => {
-    if (isArbitrum && step === 2) {
-      setStep(3);
-    }
-  }, [isArbitrum, step]);
+    if (isConnected && address && screen === "quests") awardQuest("WALLET_CONNECTED");
+  }, [isConnected, address, screen, awardQuest]);
 
-  // Auto-authenticate when on correct network
+  // Auto-detect network
   useEffect(() => {
-    if (isConnected && address && isArbitrum && !user && !isAuthenticating) {
-      authenticate();
-    }
+    if (isArbitrum && screen === "quests") awardQuest("NETWORK_SWITCHED");
+  }, [isArbitrum, screen, awardQuest]);
+
+  // Auto-auth
+  useEffect(() => {
+    if (isConnected && address && isArbitrum && !user && !isAuthenticating) authenticate();
   }, [isConnected, address, isArbitrum, user, isAuthenticating, authenticate]);
 
-  const handleSwitchNetwork = useCallback(() => {
-    switchChain({ chainId: arbitrum.id });
-  }, [switchChain]);
+  // Profile quest from screen 1
+  useEffect(() => {
+    if (profileSet && screen === "quests") awardQuest("PROFILE_SET");
+  }, [profileSet, screen, awardQuest]);
 
-  const handleSkip = useCallback(() => {
+  const handleBeginJourney = () => {
+    if (username.trim().length > 0) setProfileSet(true);
+    setScreen("quests");
+  };
+
+  const handleFinish = () => {
     localStorage.setItem("zelkora-onboarding-done", "true");
     onComplete();
-  }, [onComplete]);
+  };
 
-  const handleFinish = useCallback(() => {
+  const handleSkip = () => {
     localStorage.setItem("zelkora-onboarding-done", "true");
     onComplete();
-  }, [onComplete]);
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const requiredDone = ["WALLET_CONNECTED", "NETWORK_SWITCHED", "PROFILE_SET"].every((id) =>
+    completed.has(id),
+  );
+  const allDone = ONBOARDING_QUESTS.every((q) => completed.has(q.id));
+
+  const questStatus = (id: string): "complete" | "available" | "locked" => {
+    if (completed.has(id)) return "complete";
+    if (id === "DASHBOARD_ENTERED") return requiredDone ? "available" : "locked";
+    return "available";
+  };
+
+  const selectedAvatar = AVATAR_COLORS.find((c) => c.id === avatarColor) ?? AVATAR_COLORS[0];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#06080E]">
-      {/* Background effects */}
-      <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(0,229,255,0.03) 1px, transparent 0)", backgroundSize: "40px 40px" }} />
-      <div className="absolute left-1/4 top-1/4 h-[600px] w-[600px] rounded-full bg-[#00E5FF]/[0.05] blur-[200px]" />
-      <div className="absolute bottom-1/4 right-1/3 h-[500px] w-[500px] rounded-full bg-[#8B5CF6]/[0.04] blur-[200px]" />
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#06080E]">
+      <style>{CSS_ANIM}</style>
+      {/* BG effects */}
+      <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(0,229,255,0.03) 1px, transparent 0)", backgroundSize: "40px 40px" }} />
+      <div className="pointer-events-none absolute left-1/4 top-1/4 h-[600px] w-[600px] rounded-full bg-[#00E5FF]/[0.04] blur-[200px]" />
+      <div className="pointer-events-none absolute bottom-1/4 right-1/3 h-[500px] w-[500px] rounded-full bg-[#8B5CF6]/[0.03] blur-[200px]" />
 
-      <div className="relative z-10 mx-auto w-full max-w-lg px-6">
-        {/* Progress */}
-        <div className="mb-8 flex items-center justify-center gap-2">
-          {STEPS.map((s, i) => (
-            <div key={s.id} className="flex items-center gap-2">
-              <div className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300",
-                i < step ? "bg-[#10B981] text-white" :
-                i === step ? "bg-[#00E5FF] text-[#06080E] shadow-lg shadow-[#00E5FF]/30" :
-                "bg-[#1A2340] text-[#475569]"
-              )}>
-                {i < step ? (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : i + 1}
-              </div>
-              {i < STEPS.length - 1 && (
-                <div className={cn("h-0.5 w-8 rounded-full transition-all duration-300",
-                  i < step ? "bg-[#10B981]" : "bg-[#1A2340]"
-                )} />
-              )}
-            </div>
-          ))}
-        </div>
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-lg flex-col items-center justify-center px-4 py-8" style={{ animation: "fadeIn .5s ease" }}>
+        {/* ═══ Screen 1: Character Setup ═══ */}
+        {screen === "character" && (
+          <div className="w-full rounded-2xl border border-[#1E293B] bg-[#0F1629] p-6 sm:p-8">
+            <h1 className="bg-gradient-to-r from-[#00E5FF] to-[#8B5CF6] bg-clip-text text-center text-3xl font-black text-transparent">
+              Welcome to Zelkora
+            </h1>
+            <p className="mt-2 text-center text-sm text-[#94A3B8]">Create your trader identity</p>
 
-        {/* Card */}
-        <div className="overflow-hidden rounded-2xl border border-[#1E293B] bg-[#0F1629] shadow-2xl">
-          {/* Step 0: Welcome */}
-          {step === 0 && (
-            <div className="p-8 text-center">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#00E5FF] to-[#8B5CF6]">
-                <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-black text-[#F8FAFC]">Welcome to Zelkora.ai</h2>
-              <p className="mt-3 text-sm leading-relaxed text-[#94A3B8]">
-                Deploy autonomous AI trading bots on Hyperliquid DEX.
-                Non-custodial, on-chain, powered by AI.
-              </p>
+            {/* Username */}
+            <label className="mt-6 block text-xs font-semibold uppercase tracking-wider text-[#475569]">Username</label>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-[#1E293B] bg-[#06080E] px-4 py-3 font-mono text-sm text-[#F8FAFC] outline-none transition-all focus:border-[#00E5FF]"
+              placeholder="trader_xxxx"
+            />
 
-              <div className="mt-6 space-y-3 text-left">
-                {[
-                  { icon: "1", text: "Connect your wallet (MetaMask, WalletConnect, etc.)" },
-                  { icon: "2", text: "Switch to Arbitrum network" },
-                  { icon: "3", text: "Start trading with AI-powered bots" },
-                ].map((item) => (
-                  <div key={item.icon} className="flex items-center gap-3 rounded-lg bg-[#1A2340]/50 px-4 py-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#00E5FF]/10 text-xs font-bold text-[#00E5FF]">{item.icon}</span>
-                    <span className="text-sm text-[#E2E8F0]">{item.text}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-8 flex gap-3">
-                <button onClick={handleSkip}
-                  className="flex-1 rounded-xl border border-[#1E293B] py-3 text-sm font-medium text-[#94A3B8] transition-all hover:bg-[#1A2340]">
-                  Skip for now
-                </button>
-                <button onClick={() => setStep(1)}
-                  className="flex-1 rounded-xl bg-[#00E5FF] py-3 text-sm font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/25">
-                  Get Started
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 1: Connect Wallet */}
-          {step === 1 && (
-            <div className="p-8 text-center">
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#00E5FF]/10">
-                <svg className="h-8 w-8 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-[#F8FAFC]">Connect Your Wallet</h2>
-              <p className="mt-2 text-sm text-[#94A3B8]">
-                Choose your preferred wallet. We never hold your keys or funds.
-              </p>
-
-              <div className="mt-6">
-                <ConnectButton.Custom>
-                  {({ openConnectModal }) => (
-                    <button onClick={openConnectModal}
-                      className="w-full rounded-xl bg-[#00E5FF] py-4 text-base font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/25">
-                      Connect Wallet
-                    </button>
+            {/* Avatar color */}
+            <label className="mt-5 block text-xs font-semibold uppercase tracking-wider text-[#475569]">Avatar Color</label>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {AVATAR_COLORS.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setAvatarColor(c.id)}
+                  className={cn(
+                    "h-10 w-10 rounded-full transition-all duration-200",
+                    avatarColor === c.id ? "ring-2 ring-white ring-offset-2 ring-offset-[#0F1629] scale-110" : "hover:scale-105",
                   )}
-                </ConnectButton.Custom>
-              </div>
+                  style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
+                />
+              ))}
+            </div>
 
-              <div className="mt-6 rounded-xl border border-[#1E293B] bg-[#06080E] p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#475569]">Supported Wallets</p>
-                <div className="mt-3 flex justify-center gap-6">
-                  {["MetaMask", "WalletConnect", "Coinbase", "Rainbow"].map((w) => (
-                    <span key={w} className="text-xs text-[#94A3B8]">{w}</span>
-                  ))}
+            {/* Preview */}
+            <div className="mt-5 flex items-center gap-3 rounded-xl border border-[#1E293B] bg-[#06080E] p-3">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                style={{ background: `linear-gradient(135deg, ${selectedAvatar.from}, ${selectedAvatar.to})` }}
+              >
+                {username.slice(0, 2).toUpperCase()}
+              </div>
+              <span className="truncate font-mono text-sm text-[#E2E8F0]">{username || "trader"}</span>
+            </div>
+
+            {/* Referral */}
+            <label className="mt-5 block text-xs font-semibold uppercase tracking-wider text-[#475569]">Got an invite code?</label>
+            <input
+              value={referral}
+              onChange={(e) => setReferral(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-[#1E293B] bg-[#06080E] px-4 py-3 font-mono text-sm text-[#F8FAFC] outline-none transition-all focus:border-[#8B5CF6]"
+              placeholder="Optional"
+            />
+
+            <button
+              onClick={handleBeginJourney}
+              className="mt-6 w-full rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#8B5CF6] py-3.5 text-sm font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/25"
+            >
+              Begin Your Journey
+            </button>
+            <button onClick={handleSkip} className="mt-3 w-full py-2 text-xs text-[#475569] transition-all hover:text-[#94A3B8]">
+              Skip for now
+            </button>
+          </div>
+        )}
+
+        {/* ═══ Screen 2: Quest Board ═══ */}
+        {screen === "quests" && (
+          <div className="w-full" style={{ animation: "fadeIn .4s ease" }}>
+            {/* XP bar + level */}
+            <div className="mb-6 flex items-center gap-4">
+              <div className="flex-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[#E2E8F0]">Level {level.level}: {level.title}</span>
+                  <span className="text-[#94A3B8]">
+                    {nextLvl ? `${progress.current}/${progress.needed} XP` : "MAX"}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[#1A2340]">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${progress.percent}%`, background: `linear-gradient(90deg, ${level.color}, #8B5CF6)` }}
+                  />
                 </div>
               </div>
-
-              <button onClick={handleSkip} className="mt-4 text-xs text-[#475569] hover:text-[#94A3B8]">
-                Skip for now
-              </button>
-            </div>
-          )}
-
-          {/* Step 2: Switch Network */}
-          {step === 2 && (
-            <div className="p-8 text-center">
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#8B5CF6]/10">
-                <svg className="h-8 w-8 text-[#8B5CF6]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                </svg>
+              {/* Level badge */}
+              <div
+                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 text-lg font-black"
+                style={{ borderColor: level.color, color: level.color, animation: xpDelta ? "glow 1s ease" : undefined }}
+              >
+                {level.level}
               </div>
-              <h2 className="text-xl font-bold text-[#F8FAFC]">Switch to Arbitrum</h2>
-              <p className="mt-2 text-sm text-[#94A3B8]">
-                Hyperliquid uses the Arbitrum network for wallet signing.
-                Please switch your wallet to Arbitrum.
-              </p>
+            </div>
 
-              {isConnected && (
-                <div className="mt-4 rounded-lg bg-[#1A2340]/50 px-4 py-2">
-                  <p className="text-xs text-[#94A3B8]">
-                    Connected: <span className="font-mono text-[#00E5FF]">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                  </p>
+            {/* XP float animation */}
+            {xpDelta !== null && (
+              <div className="pointer-events-none fixed left-1/2 top-1/3 z-50 -translate-x-1/2 text-xl font-black text-[#00E5FF]" style={{ animation: "xpFloat 1.2s ease forwards" }}>
+                +{xpDelta} XP
+              </div>
+            )}
+
+            {/* Quest cards */}
+            <div className="space-y-3">
+              {ONBOARDING_QUESTS.map((quest) => {
+                const status = questStatus(quest.id);
+                const borderColor = status === "complete" ? "#10B981" : status === "available" ? "#00E5FF" : "#1E293B";
+                return (
+                  <div
+                    key={quest.id}
+                    className={cn(
+                      "flex items-center gap-4 rounded-xl border bg-[#0F1629] p-4 transition-all duration-200",
+                      status === "complete" && "bg-[#10B981]/[0.06]",
+                      status === "locked" && "opacity-50",
+                    )}
+                    style={{ borderColor }}
+                  >
+                    {/* Icon */}
+                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", status === "complete" ? "bg-[#10B981]/10" : "bg-[#1A2340]")}>
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={status === "complete" ? "#10B981" : "#94A3B8"} strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d={quest.icon} />
+                      </svg>
+                    </div>
+
+                    {/* Text */}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-[#F8FAFC]">{quest.title}</p>
+                      <p className="text-xs text-[#94A3B8]">{quest.description}</p>
+
+                      {/* Inline actions */}
+                      {quest.id === "WALLET_CONNECTED" && !completed.has(quest.id) && (
+                        <ConnectButton.Custom>
+                          {({ openConnectModal }) => (
+                            <button onClick={openConnectModal} className="mt-2 rounded-lg bg-[#00E5FF]/10 px-3 py-1.5 text-xs font-semibold text-[#00E5FF] transition-all hover:bg-[#00E5FF]/20">
+                              Connect Wallet
+                            </button>
+                          )}
+                        </ConnectButton.Custom>
+                      )}
+                      {quest.id === "NETWORK_SWITCHED" && !completed.has(quest.id) && isConnected && (
+                        <button onClick={() => switchChain({ chainId: arbitrum.id })} className="mt-2 rounded-lg bg-[#8B5CF6]/10 px-3 py-1.5 text-xs font-semibold text-[#8B5CF6] transition-all hover:bg-[#8B5CF6]/20">
+                          Switch Network
+                        </button>
+                      )}
+                      {quest.id === "FRIEND_INVITED" && !completed.has(quest.id) && status === "available" && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="rounded bg-[#06080E] px-2 py-1 font-mono text-xs text-[#E2E8F0]">{myReferralCode}</span>
+                          <button onClick={() => { handleCopy(myReferralCode); awardQuest("FRIEND_INVITED"); }} className="rounded-lg bg-[#8B5CF6]/10 px-3 py-1.5 text-xs font-semibold text-[#8B5CF6] transition-all hover:bg-[#8B5CF6]/20">
+                            {copied ? "Copied" : "Copy & Share"}
+                          </button>
+                          <button onClick={() => awardQuest("FRIEND_INVITED")} className="text-xs text-[#475569] hover:text-[#94A3B8]">Skip</button>
+                        </div>
+                      )}
+                      {quest.id === "DASHBOARD_ENTERED" && status === "available" && (
+                        <button
+                          onClick={() => { awardQuest("DASHBOARD_ENTERED"); setTimeout(() => setScreen("celebration"), 600); }}
+                          className="mt-2 rounded-lg bg-gradient-to-r from-[#00E5FF] to-[#8B5CF6] px-4 py-1.5 text-xs font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/20"
+                        >
+                          Enter the Arena
+                        </button>
+                      )}
+                    </div>
+
+                    {/* XP + status */}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-bold", status === "complete" ? "bg-[#10B981]/10 text-[#10B981]" : "bg-[#1A2340] text-[#94A3B8]")}>
+                        +{quest.xp} XP
+                      </span>
+                      {status === "complete" && (
+                        <svg className="h-5 w-5 text-[#10B981]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                      {status === "available" && (
+                        <svg className="h-5 w-5 text-[#00E5FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                        </svg>
+                      )}
+                      {status === "locked" && (
+                        <svg className="h-5 w-5 text-[#475569]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button onClick={handleSkip} className="mt-5 w-full py-2 text-xs text-[#475569] transition-all hover:text-[#94A3B8]">
+              Skip onboarding
+            </button>
+          </div>
+        )}
+
+        {/* ═══ Screen 3: Celebration ═══ */}
+        {screen === "celebration" && (
+          <div className="w-full text-center" style={{ animation: "fadeIn .5s ease" }}>
+            {/* Confetti particles */}
+            <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full"
+                  style={{
+                    width: 6 + (i % 4) * 2,
+                    height: 6 + (i % 4) * 2,
+                    left: `${4 + (i * 4) % 92}%`,
+                    bottom: -10,
+                    background: ["#00E5FF", "#8B5CF6", "#10B981", "#F59E0B", "#F43F5E", "#FFD700"][i % 6],
+                    animation: `confettiRise ${1.8 + (i % 5) * 0.4}s ease ${i * 0.08}s infinite`,
+                  }}
+                />
+              ))}
+            </div>
+
+            <div className="relative z-50 rounded-2xl border border-[#1E293B] bg-[#0F1629] p-6 sm:p-8">
+              {/* Level badge */}
+              <div
+                className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-4 text-3xl font-black"
+                style={{ borderColor: level.color, color: level.color, animation: "glow 2s ease infinite" }}
+              >
+                {level.level}
+              </div>
+              <h2 className="mt-4 text-2xl font-black text-[#F8FAFC]" style={{ animation: "countUp .6s ease" }}>
+                Level {level.level} Achieved!
+              </h2>
+              <p className="text-sm font-semibold" style={{ color: level.color }}>{level.title}</p>
+
+              {/* Founder badge */}
+              {founderBadge && (
+                <div className="mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-[#FFD700]/30 bg-[#FFD700]/[0.06] px-4 py-2" style={{ animation: "glow 2s ease infinite", color: "#FFD700" }}>
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d={founderBadge.icon} />
+                  </svg>
+                  <span className="text-sm font-bold">{founderBadge.name} Badge</span>
                 </div>
               )}
 
-              <div className="mt-6">
-                {isArbitrum ? (
-                  <div className="flex items-center justify-center gap-2 rounded-xl bg-[#10B981]/10 py-4 text-[#10B981]">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                    <span className="font-semibold">Already on Arbitrum!</span>
-                  </div>
-                ) : (
-                  <button onClick={handleSwitchNetwork}
-                    className="w-full rounded-xl bg-[#8B5CF6] py-4 text-base font-bold text-white transition-all hover:bg-[#7C3AED]">
-                    Switch to Arbitrum
+              {/* XP summary */}
+              <div className="mt-5 rounded-xl bg-[#06080E] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#475569]">XP Earned</p>
+                <p className="mt-1 text-3xl font-black text-[#00E5FF]" style={{ animation: "countUp .8s ease" }}>
+                  {xp} XP
+                </p>
+              </div>
+
+              {/* Referral share */}
+              <div className="mt-4 rounded-xl border border-[#1E293B] bg-[#1A2340]/40 p-4">
+                <p className="text-xs text-[#94A3B8]">Share to earn 20% of their fees</p>
+                <div className="mt-2 flex items-center justify-center gap-2">
+                  <span className="rounded bg-[#06080E] px-3 py-1.5 font-mono text-sm text-[#F8FAFC]">{myReferralCode}</span>
+                  <button
+                    onClick={() => handleCopy(myReferralCode)}
+                    className="rounded-lg bg-[#8B5CF6]/10 px-3 py-1.5 text-xs font-semibold text-[#8B5CF6] transition-all hover:bg-[#8B5CF6]/20"
+                  >
+                    {copied ? "Copied" : "Copy"}
                   </button>
-                )}
-              </div>
-
-              <button onClick={() => { setStep(3); }}
-                className="mt-4 text-xs text-[#475569] hover:text-[#94A3B8]">
-                Continue anyway
-              </button>
-            </div>
-          )}
-
-          {/* Step 3: Ready */}
-          {step === 3 && (
-            <div className="p-8 text-center">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#10B981]/10">
-                <svg className="h-10 w-10 text-[#10B981]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-black text-[#F8FAFC]">You're All Set!</h2>
-              <p className="mt-3 text-sm leading-relaxed text-[#94A3B8]">
-                Your wallet is connected. You can now explore the platform, build bots, and start trading.
-              </p>
-
-              {isConnected && address && (
-                <div className="mt-5 rounded-xl border border-[#10B981]/20 bg-[#10B981]/5 p-4">
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#00E5FF] to-[#8B5CF6] text-sm font-bold text-white">
-                      {address.slice(2, 4).toUpperCase()}
-                    </div>
-                    <div className="text-left">
-                      <p className="font-mono text-sm text-[#F8FAFC]">{address.slice(0, 6)}...{address.slice(-4)}</p>
-                      <p className="text-xs text-[#10B981]">{isArbitrum ? "Arbitrum" : `Chain ${chainId}`}</p>
-                    </div>
-                  </div>
                 </div>
-              )}
-
-              <div className="mt-6 space-y-2 text-left">
-                {[
-                  { label: "Explore Dashboard", desc: "View market data and portfolio overview" },
-                  { label: "Deploy a Bot", desc: "Choose from AI-powered presets or build custom" },
-                  { label: "Copy Top Traders", desc: "Mirror the best performers automatically" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-lg bg-[#1A2340]/30 px-4 py-3">
-                    <p className="text-sm font-medium text-[#E2E8F0]">{item.label}</p>
-                    <p className="text-xs text-[#475569]">{item.desc}</p>
-                  </div>
-                ))}
               </div>
 
-              <button onClick={handleFinish}
-                className="mt-8 w-full rounded-xl bg-[#00E5FF] py-4 text-base font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/25">
+              <button
+                onClick={handleFinish}
+                className="mt-6 w-full rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#8B5CF6] py-4 text-base font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/25"
+              >
                 Enter Dashboard
               </button>
             </div>
-          )}
-        </div>
-
-        {/* Step label */}
-        <p className="mt-4 text-center text-xs text-[#475569]">
-          Step {step + 1} of {STEPS.length} — {STEPS[step].title}
-        </p>
+          </div>
+        )}
       </div>
     </div>
   );
