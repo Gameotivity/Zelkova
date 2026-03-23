@@ -1,0 +1,28 @@
+[project]
+name = "hyperalpha"
+version = "0.1.0"
+description = "AI Multi-Agent Trading Desk for Hyperliquid"
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-anthropic>=0.3.0",
+    "anthropic>=0.40.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "aiohttp>=3.10.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "python-dotenv>=1.0.0",
+    "structlog>=24.4.0",
+    "orjson>=3.10.0",
+]
+
+[project.scripts]
+hyperalpha = "hyperalpha.main:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
