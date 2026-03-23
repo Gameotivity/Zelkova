@@ -33,7 +33,65 @@ const CSS_ANIM = `
 @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 @keyframes glow { 0%,100%{box-shadow:0 0 8px currentColor} 50%{box-shadow:0 0 24px currentColor} }
 @keyframes countUp { from{opacity:0;transform:scale(.6)} to{opacity:1;transform:scale(1)} }
+@keyframes particle-float { 0%{transform:translateY(100vh) scale(0);opacity:0} 10%{opacity:1;transform:translateY(90vh) scale(1)} 90%{opacity:.6} 100%{transform:translateY(-10vh) scale(.5);opacity:0} }
+@keyframes orbit { from{transform:rotate(0deg) translateX(var(--orbit-r)) rotate(0deg)} to{transform:rotate(360deg) translateX(var(--orbit-r)) rotate(-360deg)} }
+@keyframes pulse-ring { 0%{transform:scale(1);opacity:.4} 50%{transform:scale(1.4);opacity:0} 100%{transform:scale(1);opacity:.4} }
+@keyframes grid-pulse { 0%,100%{opacity:.03} 50%{opacity:.08} }
+@keyframes badge-spin { 0%{transform:rotateY(0)} 100%{transform:rotateY(360deg)} }
+@keyframes shimmer-move { 0%{background-position:-200% center} 100%{background-position:200% center} }
+@keyframes quest-unlock { 0%{transform:scale(.9);opacity:0;filter:blur(4px)} 100%{transform:scale(1);opacity:1;filter:blur(0)} }
+@keyframes energy-wave { 0%{transform:scaleX(0);opacity:1} 100%{transform:scaleX(1);opacity:0} }
 `;
+
+/** Floating particles background — game-like energy */
+function GameParticles() {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+      {/* Grid pulse */}
+      <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(0,229,255,0.05) 1px, transparent 0)", backgroundSize: "30px 30px", animation: "grid-pulse 4s ease-in-out infinite" }} />
+
+      {/* Orbiting rings */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        {[120, 200, 300].map((r, i) => (
+          <div key={r} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ width: r * 2, height: r * 2, borderColor: `rgba(0,229,255,${0.08 - i * 0.02})`, animation: `orbit ${20 + i * 10}s linear infinite`, ['--orbit-r' as string]: `${r}px` }}>
+            <div className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-[#00E5FF]" style={{ boxShadow: "0 0 8px #00E5FF" }} />
+          </div>
+        ))}
+      </div>
+
+      {/* Rising particles */}
+      {Array.from({ length: 30 }).map((_, i) => (
+        <div key={i} className="absolute rounded-full" style={{
+          width: 3 + (i % 4) * 2,
+          height: 3 + (i % 4) * 2,
+          left: `${(i * 3.3) % 100}%`,
+          background: ["#00E5FF", "#8B5CF6", "#10B981", "#F59E0B", "#F43F5E"][i % 5],
+          opacity: 0,
+          animation: `particle-float ${6 + (i % 8) * 2}s ease-in-out ${i * 0.4}s infinite`,
+          boxShadow: `0 0 6px ${["#00E5FF", "#8B5CF6", "#10B981", "#F59E0B", "#F43F5E"][i % 5]}40`,
+        }} />
+      ))}
+
+      {/* Pulsing rings */}
+      {[
+        { x: "15%", y: "20%", color: "#00E5FF" },
+        { x: "80%", y: "30%", color: "#8B5CF6" },
+        { x: "50%", y: "70%", color: "#10B981" },
+      ].map((ring, i) => (
+        <div key={i} className="absolute" style={{ left: ring.x, top: ring.y }}>
+          <div className="h-4 w-4 rounded-full" style={{ background: ring.color, boxShadow: `0 0 12px ${ring.color}` }} />
+          <div className="absolute inset-0 rounded-full" style={{ border: `1px solid ${ring.color}`, animation: `pulse-ring 3s ease-in-out ${i * 0.8}s infinite` }} />
+          <div className="absolute -inset-2 rounded-full" style={{ border: `1px solid ${ring.color}40`, animation: `pulse-ring 3s ease-in-out ${i * 0.8 + 0.5}s infinite` }} />
+        </div>
+      ))}
+
+      {/* Glow orbs */}
+      <div className="absolute left-[20%] top-[30%] h-[400px] w-[400px] rounded-full bg-[#00E5FF]/[0.06] blur-[150px] animate-pulse" style={{ animationDuration: "5s" }} />
+      <div className="absolute right-[15%] bottom-[20%] h-[350px] w-[350px] rounded-full bg-[#8B5CF6]/[0.05] blur-[150px] animate-pulse" style={{ animationDuration: "7s" }} />
+      <div className="absolute left-[50%] top-[60%] h-[200px] w-[200px] rounded-full bg-[#10B981]/[0.04] blur-[100px] animate-pulse" style={{ animationDuration: "4s" }} />
+    </div>
+  );
+}
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [screen, setScreen] = useState<Screen>("character");
@@ -127,19 +185,19 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   return (
     <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#06080E]">
       <style>{CSS_ANIM}</style>
-      {/* BG effects */}
-      <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(0,229,255,0.03) 1px, transparent 0)", backgroundSize: "40px 40px" }} />
-      <div className="pointer-events-none absolute left-1/4 top-1/4 h-[600px] w-[600px] rounded-full bg-[#00E5FF]/[0.04] blur-[200px]" />
-      <div className="pointer-events-none absolute bottom-1/4 right-1/3 h-[500px] w-[500px] rounded-full bg-[#8B5CF6]/[0.03] blur-[200px]" />
+      <GameParticles />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-lg flex-col items-center justify-center px-4 py-8" style={{ animation: "fadeIn .5s ease" }}>
         {/* ═══ Screen 1: Character Setup ═══ */}
         {screen === "character" && (
-          <div className="w-full rounded-2xl border border-[#1E293B] bg-[#0F1629] p-6 sm:p-8">
-            <h1 className="bg-gradient-to-r from-[#00E5FF] to-[#8B5CF6] bg-clip-text text-center text-3xl font-black text-transparent">
+          <div className="relative w-full overflow-hidden rounded-2xl border border-[#00E5FF]/20 bg-[#0F1629]/90 p-6 backdrop-blur-xl sm:p-8 shadow-[0_0_40px_rgba(0,229,255,0.08)]">
+            {/* Animated border shimmer */}
+            <div className="absolute inset-0 rounded-2xl" style={{ background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.1), transparent)", backgroundSize: "200% 100%", animation: "shimmer-move 3s linear infinite" }} />
+
+            <h1 className="relative text-center text-3xl font-black" style={{ background: "linear-gradient(90deg, #00E5FF, #8B5CF6, #00E5FF)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer-move 3s linear infinite" }}>
               Welcome to Zelkora
             </h1>
-            <p className="mt-2 text-center text-sm text-[#94A3B8]">Create your trader identity</p>
+            <p className="relative mt-2 text-center text-sm text-[#94A3B8]">Create your trader identity</p>
 
             {/* Username */}
             <label className="mt-6 block text-xs font-semibold uppercase tracking-wider text-[#475569]">Username</label>
@@ -235,19 +293,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
             {/* Quest cards */}
             <div className="space-y-3">
-              {ONBOARDING_QUESTS.map((quest) => {
+              {ONBOARDING_QUESTS.map((quest, qi) => {
                 const status = questStatus(quest.id);
                 const borderColor = status === "complete" ? "#10B981" : status === "available" ? "#00E5FF" : "#1E293B";
                 return (
                   <div
                     key={quest.id}
                     className={cn(
-                      "flex items-center gap-4 rounded-xl border bg-[#0F1629] p-4 transition-all duration-200",
-                      status === "complete" && "bg-[#10B981]/[0.06]",
-                      status === "locked" && "opacity-50",
+                      "relative flex items-center gap-4 rounded-xl border bg-[#0F1629]/90 p-4 backdrop-blur-sm transition-all duration-300",
+                      status === "complete" && "bg-[#10B981]/[0.08] shadow-[0_0_20px_rgba(16,185,129,0.1)]",
+                      status === "available" && "shadow-[0_0_15px_rgba(0,229,255,0.08)]",
+                      status === "locked" && "opacity-40",
                     )}
-                    style={{ borderColor }}
+                    style={{ borderColor, animation: `quest-unlock 0.5s ease ${qi * 0.12}s both` }}
                   >
+                    {/* Energy wave on complete */}
+                    {status === "complete" && (
+                      <div className="absolute inset-0 rounded-xl" style={{ background: `linear-gradient(90deg, transparent, ${borderColor}20, transparent)`, animation: "energy-wave 1.5s ease forwards" }} />
+                    )}
                     {/* Icon */}
                     <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", status === "complete" ? "bg-[#10B981]/10" : "bg-[#1A2340]")}>
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={status === "complete" ? "#10B981" : "#94A3B8"} strokeWidth={1.5}>
@@ -329,16 +392,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         {/* ═══ Screen 3: Celebration ═══ */}
         {screen === "celebration" && (
           <div className="w-full text-center" style={{ animation: "fadeIn .5s ease" }}>
-            {/* Confetti particles */}
+            {/* Confetti particles — massive burst */}
             <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
-              {Array.from({ length: 24 }).map((_, i) => (
+              {Array.from({ length: 50 }).map((_, i) => (
                 <div
                   key={i}
                   className="absolute rounded-full"
                   style={{
                     width: 6 + (i % 4) * 2,
                     height: 6 + (i % 4) * 2,
-                    left: `${4 + (i * 4) % 92}%`,
+                    left: `${(i * 2) % 100}%`,
                     bottom: -10,
                     background: ["#00E5FF", "#8B5CF6", "#10B981", "#F59E0B", "#F43F5E", "#FFD700"][i % 6],
                     animation: `confettiRise ${1.8 + (i % 5) * 0.4}s ease ${i * 0.08}s infinite`,
