@@ -27,11 +27,26 @@ function calculateFees(notional: number): { exchangeFee: number; builderFee: num
   return { exchangeFee, builderFee };
 }
 
+/**
+ * Get fee-adjusted position size multiplier based on subscription tier.
+ * Performance fee is embedded by reducing position size:
+ *   FREE = 1.0 (no fee), PRO = 0.85 (15% fee), ELITE = 0.90 (10% fee)
+ */
+function getFeeMultiplier(tier: string = 'PRO'): number {
+  switch (tier) {
+    case 'FREE': return 1.0;
+    case 'ELITE': return 0.90;
+    case 'PRO':
+    default: return 0.85;
+  }
+}
+
 /** Execute a paper trade using real Hyperliquid mid prices */
 export async function executePaperTrade(
   signal: Signal,
   capitalUsd: number,
   positionSizePct: number,
+  tier: string = 'PRO',
 ): Promise<TradeResult> {
   // Coin from signal.pair — strip "-USD" suffix if present
   const coin = signal.pair.replace('-USD', '').replace('/USD', '');
@@ -39,7 +54,10 @@ export async function executePaperTrade(
   const midPrice = await fetchMidPrice(coin);
   const fillPrice = applySlippage(midPrice, signal.direction as 'BUY' | 'SELL');
 
-  const positionUsd = capitalUsd * (positionSizePct / 100);
+  // Fee-adjusted position: reduce size to embed performance fee
+  const feeMultiplier = getFeeMultiplier(tier);
+  const rawPositionUsd = capitalUsd * (positionSizePct / 100);
+  const positionUsd = rawPositionUsd * feeMultiplier;
   const quantity = positionUsd / fillPrice;
   const { exchangeFee, builderFee } = calculateFees(positionUsd);
   const totalFee = exchangeFee + builderFee;

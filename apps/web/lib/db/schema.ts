@@ -417,6 +417,41 @@ export const walletNonces = pgTable("wallet_nonces", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Fee Ledger — tracks performance fees per user
+export const feeLedger = pgTable(
+  "fee_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id").references(() => agents.id),
+    // Period tracking
+    periodStart: timestamp("period_start").notNull(),
+    periodEnd: timestamp("period_end").notNull(),
+    // P&L for the period
+    grossPnl: real("gross_pnl").notNull().default(0),
+    netPnl: real("net_pnl").notNull().default(0), // after fees
+    // Fee calculation
+    feeTier: text("fee_tier").notNull().default("PRO"), // FREE, PRO, ELITE
+    feeRatePct: real("fee_rate_pct").notNull().default(15), // 0, 15, or 10
+    feeAmountUsd: real("fee_amount_usd").notNull().default(0),
+    // Collection
+    builderFeesCollected: real("builder_fees_collected").default(0),
+    performanceFeeOwed: real("performance_fee_owed").default(0),
+    performanceFeeCollected: real("performance_fee_collected").default(0),
+    // Status
+    status: text("status").notNull().default("open"), // open, settled, waived
+    settledAt: timestamp("settled_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("fee_ledger_user_idx").on(table.userId),
+    index("fee_ledger_period_idx").on(table.periodStart),
+    index("fee_ledger_status_idx").on(table.status),
+  ],
+);
+
 // Audit Log
 export const auditLog = pgTable(
   "audit_log",
