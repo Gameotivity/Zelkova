@@ -2,21 +2,86 @@ import { executePaperTrade, fetchLivePrice } from "../executors/hl-executor";
 import { db } from "../db";
 import type { Signal, TradeResult } from "./types";
 
-// Placeholder — new strategies will be plugged in here
 async function generateLiveSignal(
-  _strategy: string,
-  _coin: string,
-  _pair: string,
-  _config: Record<string, unknown>,
+  strategy: string,
+  coin: string,
+  pair: string,
+  config: Record<string, unknown>,
 ): Promise<Signal> {
+  if (strategy === "hyperalpha") {
+    return generateHyperAlphaSignal(coin, pair, config);
+  }
+
   return {
     direction: "HOLD",
     confidence: 0,
-    strategy: _strategy,
-    pair: _pair,
+    strategy,
+    pair,
     indicators: {},
     reason: "Strategy not implemented yet",
   };
+}
+
+async function generateHyperAlphaSignal(
+  coin: string,
+  pair: string,
+  _config: Record<string, unknown>,
+): Promise<Signal> {
+  const url = process.env.HYPERALPHA_URL || "http://localhost:8001";
+
+  try {
+    const res = await fetch(`${url}/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: coin }),
+      signal: AbortSignal.timeout(300_000),
+    });
+
+    if (!res.ok) {
+      return {
+        direction: "HOLD",
+        confidence: 0,
+        strategy: "hyperalpha",
+        pair,
+        indicators: {},
+        reason: `HyperAlpha error: ${res.status}`,
+      };
+    }
+
+    const data = await res.json();
+
+    const direction =
+      data.action === "long" ? "BUY" : data.action === "short" ? "SELL" : "HOLD";
+    const confidence = Math.round((data.confidence || 0) * 100);
+
+    return {
+      direction,
+      confidence,
+      strategy: "hyperalpha",
+      pair,
+      indicators: {
+        signal_alignment: data.signal_alignment,
+        risk_score: data.risk_score,
+        entry_price: data.entry_price,
+        stop_loss: data.stop_loss,
+        take_profit: data.take_profit,
+        approved: data.approved,
+      },
+      reason: data.approved
+        ? `${data.action.toUpperCase()} @ $${data.entry_price} (conf: ${confidence}%)`
+        : `Rejected: risk_score=${data.risk_score}`,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return {
+      direction: "HOLD",
+      confidence: 0,
+      strategy: "hyperalpha",
+      pair,
+      indicators: {},
+      reason: `HyperAlpha unavailable: ${msg}`,
+    };
+  }
 }
 
 export interface AgentConfig {
