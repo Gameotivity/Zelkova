@@ -5,7 +5,7 @@ import { http } from "wagmi";
 // WalletConnect Cloud Project ID
 // Get yours free at https://cloud.walletconnect.com
 const WC_PROJECT_ID =
-  process.env.NEXT_PUBLIC_WC_PROJECT_ID || "b56e18d47c72ab683b10814fe9495694";
+  (process.env.NEXT_PUBLIC_WC_PROJECT_ID || "b56e18d47c72ab683b10814fe9495694").trim();
 
 export const walletConfig = getDefaultConfig({
   appName: "Zelkora.ai",
