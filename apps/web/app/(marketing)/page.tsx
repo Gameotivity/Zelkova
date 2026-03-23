@@ -448,6 +448,7 @@ function Nav() {
         <div className="hidden items-center gap-8 md:flex">
           <Link href="#pipeline" className="text-sm text-[#94A3B8] transition-colors hover:text-white">How It Works</Link>
           <Link href="#performance" className="text-sm text-[#94A3B8] transition-colors hover:text-white">Performance</Link>
+          <Link href="/pricing" className="text-sm text-[#00E5FF] font-semibold transition-colors hover:text-white">Pricing</Link>
           <Link href="#security" className="text-sm text-[#94A3B8] transition-colors hover:text-white">Security</Link>
         </div>
         <div className="flex items-center gap-3">
