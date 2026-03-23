@@ -154,42 +154,30 @@ async def analyze_fundamentals(state: HyperAlphaState) -> dict[str, Any]:
     md = state.get("market_data", {})
     agent_name = "fundamentals_analyst"
 
-    # Gather data points
-    funding = md.get("funding", {})
-    oi_data = md.get("open_interest", {})
-    volume_data = md.get("volume", {})
-    orderbook = md.get("orderbook", {})
-    price = md.get("price", {})
+    # Extract flat market data fields
+    mid_price = md.get("mid_price", 0)
+    funding_rate = md.get("funding_rate", 0)
+    open_interest = md.get("open_interest", 0)
+    volume_24h = md.get("volume_24h", 0)
+    price_change = md.get("price_change_24h_pct", 0)
+    spread_bps = md.get("spread_bps", 0)
+    book_imbalance = md.get("order_book_imbalance", 0)
 
-    data_quality = 1.0
-    available_sections: list[str] = []
-    missing_sections: list[str] = []
+    data_quality = 1.0 if mid_price > 0 else 0.0
 
-    for section_name, section_val in [
-        ("funding", funding),
-        ("open_interest", oi_data),
-        ("volume", volume_data),
-        ("price", price),
-    ]:
-        if section_val:
-            available_sections.append(section_name)
-        else:
-            missing_sections.append(section_name)
-
-    if not available_sections:
+    if mid_price == 0:
         log.warning("fundamentals.no_data", ticker=ticker)
         return {"fundamentals_report": _neutral_fallback(agent_name, ticker, "No market data")}
 
-    data_quality = len(available_sections) / (len(available_sections) + len(missing_sections))
-
     prompt_data = (
         f"Ticker: {ticker}\n"
-        f"Current Price: {price}\n"
-        f"Funding Rate Data: {funding}\n"
-        f"Open Interest: {oi_data}\n"
-        f"Volume (24h): {volume_data}\n"
-        f"Orderbook Snapshot: {orderbook}\n"
-        f"Missing data: {missing_sections if missing_sections else 'none'}"
+        f"Current Price: ${mid_price:,.2f}\n"
+        f"Funding Rate (8h): {funding_rate:.6f} ({funding_rate * 3 * 365 * 100:.1f}% annualized)\n"
+        f"Open Interest: ${open_interest:,.0f}\n"
+        f"Volume (24h): ${volume_24h:,.0f}\n"
+        f"24h Price Change: {price_change:.2f}%\n"
+        f"Spread (bps): {spread_bps:.1f}\n"
+        f"Order Book Imbalance: {book_imbalance:.3f} (-1=ask heavy, +1=bid heavy)"
     )
 
     try:
@@ -214,9 +202,9 @@ async def analyze_fundamentals(state: HyperAlphaState) -> dict[str, Any]:
         confidence=confidence,
         reasoning=text,
         key_metrics={
-            "funding_rate": funding.get("current"),
-            "open_interest": oi_data.get("total"),
-            "volume_24h": volume_data.get("total"),
+            "funding_rate": funding_rate,
+            "open_interest": open_interest,
+            "volume_24h": volume_24h,
         },
         data_quality=data_quality,
     )
@@ -275,40 +263,28 @@ async def analyze_sentiment(state: HyperAlphaState) -> dict[str, Any]:
     md = state.get("market_data", {})
     agent_name = "sentiment_analyst"
 
-    volume_data = md.get("volume", {})
-    funding = md.get("funding", {})
-    liquidations = md.get("liquidations", {})
-    social = md.get("social", {})
-    price = md.get("price", {})
+    mid_price = md.get("mid_price", 0)
+    funding_rate = md.get("funding_rate", 0)
+    volume_24h = md.get("volume_24h", 0)
+    open_interest = md.get("open_interest", 0)
+    price_change = md.get("price_change_24h_pct", 0)
+    book_imbalance = md.get("order_book_imbalance", 0)
 
-    data_quality = 1.0
-    available: list[str] = []
-    missing: list[str] = []
+    data_quality = 1.0 if mid_price > 0 else 0.0
 
-    for name, val in [
-        ("volume", volume_data),
-        ("funding", funding),
-        ("price", price),
-    ]:
-        if val:
-            available.append(name)
-        else:
-            missing.append(name)
-
-    if not available:
+    if mid_price == 0:
         log.warning("sentiment.no_data", ticker=ticker)
         return {"sentiment_report": _neutral_fallback(agent_name, ticker, "No market data")}
 
-    data_quality = len(available) / (len(available) + len(missing))
-
     prompt_data = (
         f"Ticker: {ticker}\n"
-        f"Current Price: {price}\n"
-        f"Volume Profile: {volume_data}\n"
-        f"Funding Rate: {funding}\n"
-        f"Recent Liquidations: {liquidations}\n"
-        f"Social Signals: {social}\n"
-        f"Missing data: {missing if missing else 'none'}"
+        f"Current Price: ${mid_price:,.2f}\n"
+        f"24h Price Change: {price_change:.2f}%\n"
+        f"Volume (24h): ${volume_24h:,.0f}\n"
+        f"Funding Rate (8h): {funding_rate:.6f}\n"
+        f"Open Interest: ${open_interest:,.0f}\n"
+        f"Order Book Imbalance: {book_imbalance:.3f} (-1=ask heavy, +1=bid heavy)\n"
+        f"Note: Social/liquidation data not available — use price action and funding as sentiment proxy"
     )
 
     try:
@@ -342,7 +318,7 @@ async def analyze_sentiment(state: HyperAlphaState) -> dict[str, Any]:
         reasoning=text,
         key_metrics={
             "regime": regime,
-            "funding_rate": funding.get("current"),
+            "funding_rate": funding_rate,
         },
         data_quality=data_quality,
     )
@@ -709,7 +685,7 @@ async def analyze_technicals(state: HyperAlphaState) -> dict[str, Any]:
     agent_name = "technicals_analyst"
 
     candles = md.get("candles", [])
-    price = md.get("price", {})
+    mid_price = md.get("mid_price", 0)
 
     if not candles:
         log.warning("technicals.no_candles", ticker=ticker)
@@ -720,7 +696,7 @@ async def analyze_technicals(state: HyperAlphaState) -> dict[str, Any]:
 
     prompt_data = (
         f"Ticker: {ticker}\n"
-        f"Current Price: {price}\n"
+        f"Current Price: ${mid_price:,.2f}\n"
         f"Candle Count: {indicators.get('candle_count', 0)}\n"
         f"\n--- INDICATORS ---\n"
         f"RSI(14): {indicators.get('rsi', 'N/A')}\n"
@@ -820,40 +796,28 @@ async def analyze_macro(state: HyperAlphaState) -> dict[str, Any]:
     md = state.get("market_data", {})
     agent_name = "macro_analyst"
 
-    btc_data = md.get("btc", {})
-    macro_data = md.get("macro", {})
-    stablecoin = md.get("stablecoin", {})
-    etf_flows = md.get("etf_flows", {})
-    market_summary = md.get("market_summary", {})
+    mid_price = md.get("mid_price", 0)
+    funding_rate = md.get("funding_rate", 0)
+    open_interest = md.get("open_interest", 0)
+    volume_24h = md.get("volume_24h", 0)
+    price_change = md.get("price_change_24h_pct", 0)
 
-    data_quality = 1.0
-    available: list[str] = []
-    missing: list[str] = []
+    data_quality = 0.6  # Limited macro data from HL alone
 
-    for name, val in [
-        ("btc", btc_data),
-        ("macro", macro_data),
-        ("market_summary", market_summary),
-    ]:
-        if val:
-            available.append(name)
-        else:
-            missing.append(name)
-
-    if not available:
+    if mid_price == 0:
         log.warning("macro.no_data", ticker=ticker)
         return {"macro_report": _neutral_fallback(agent_name, ticker, "No macro data")}
 
-    data_quality = len(available) / (len(available) + len(missing))
-
     prompt_data = (
         f"Ticker under analysis: {ticker}\n"
-        f"BTC Price & Dominance: {btc_data}\n"
-        f"Macro Indicators (DXY, yields, equities): {macro_data}\n"
-        f"Stablecoin Supply Data: {stablecoin}\n"
-        f"ETF Flow Data: {etf_flows}\n"
-        f"Broad Market Summary: {market_summary}\n"
-        f"Missing data: {missing if missing else 'none'}"
+        f"Current Price: ${mid_price:,.2f}\n"
+        f"24h Change: {price_change:.2f}%\n"
+        f"Funding Rate (8h): {funding_rate:.6f}\n"
+        f"Open Interest: ${open_interest:,.0f}\n"
+        f"Volume (24h): ${volume_24h:,.0f}\n"
+        f"\nNote: External macro data (DXY, yields, ETF flows, stablecoin supply) "
+        f"is not available. Use your knowledge of current macro conditions and "
+        f"the Hyperliquid data above as proxy for market positioning."
     )
 
     try:
@@ -887,8 +851,8 @@ async def analyze_macro(state: HyperAlphaState) -> dict[str, Any]:
         reasoning=text,
         key_metrics={
             "regime": regime,
-            "btc_price": btc_data.get("price"),
-            "btc_dominance": btc_data.get("dominance"),
+            "price": mid_price,
+            "funding_rate": funding_rate,
         },
         data_quality=data_quality,
     )

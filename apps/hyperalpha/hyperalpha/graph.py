@@ -38,15 +38,15 @@ from langgraph.graph import StateGraph, END
 from hyperalpha.types import HyperAlphaState, Signal
 from hyperalpha.data.hyperliquid_connector import HyperliquidConnector
 from hyperalpha.agents.analysts import (
-    run_fundamentals_analyst,
-    run_sentiment_analyst,
-    run_technicals_analyst,
-    run_macro_analyst,
+    analyze_fundamentals as run_fundamentals_analyst,
+    analyze_sentiment as run_sentiment_analyst,
+    analyze_technicals as run_technicals_analyst,
+    analyze_macro as run_macro_analyst,
 )
 from hyperalpha.agents.research_debate import run_research_debate
 from hyperalpha.agents.trader_risk_fund import (
-    run_stat_arb_engine,
-    run_trader_agent,
+    run_stat_arb as run_stat_arb_engine,
+    run_trader as run_trader_agent,
     run_risk_manager,
     run_fund_manager,
 )
