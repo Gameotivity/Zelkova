@@ -95,7 +95,12 @@ function GameParticles() {
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [screen, setScreen] = useState<Screen>("character");
-  const [username, setUsername] = useState(randomTag());
+  const [username, setUsername] = useState("trader_");
+
+  // Generate random tag on client only to avoid hydration mismatch
+  useEffect(() => {
+    if (username === "trader_") setUsername(randomTag());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0].id);
   const [referral, setReferral] = useState("");
   const [completed, setCompleted] = useState<Set<string>>(new Set());
@@ -113,7 +118,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const progress = getXpProgress(xp);
   const nextLvl = getNextLevel(level.level);
   const founderBadge = BADGES.find((b) => b.id === "founder");
-  const myReferralCode = address ? address.slice(2, 10).toUpperCase() : "ZELK0000";
+  const [myReferralCode, setMyReferralCode] = useState("ZELK-XXXXXX");
+
+  useEffect(() => {
+    if (address) {
+      setMyReferralCode(`ZELK-${address.slice(2, 8).toUpperCase()}`);
+    } else {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let code = "ZELK-";
+      for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      setMyReferralCode(code);
+    }
+  }, [address]);
 
   const awardQuest = useCallback(
     (questId: string) => {
@@ -169,14 +185,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const requiredDone = ["WALLET_CONNECTED", "NETWORK_SWITCHED", "PROFILE_SET"].every((id) =>
-    completed.has(id),
-  );
+  // Only profile is required to unlock "Enter the Arena" — wallet + network are bonus XP
+  const canEnterArena = completed.has("PROFILE_SET");
   const allDone = ONBOARDING_QUESTS.every((q) => completed.has(q.id));
 
   const questStatus = (id: string): "complete" | "available" | "locked" => {
     if (completed.has(id)) return "complete";
-    if (id === "DASHBOARD_ENTERED") return requiredDone ? "available" : "locked";
+    if (id === "DASHBOARD_ENTERED") return canEnterArena ? "available" : "locked";
     return "available";
   };
 
