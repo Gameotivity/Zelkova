@@ -537,6 +537,28 @@ export const xpEvents = pgTable(
   ],
 );
 
+// Paper Trading Accounts — virtual $1000 demo balance per user
+export const paperAccounts = pgTable(
+  "paper_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    startingBalance: real("starting_balance").notNull().default(1000),
+    currentBalance: real("current_balance").notNull().default(1000),
+    totalPnl: real("total_pnl").notNull().default(0),
+    totalTrades: integer("total_trades").notNull().default(0),
+    resetCount: integer("reset_count").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("paper_accounts_user_idx").on(table.userId),
+  ],
+);
+
 // Analysis Runs — stores HyperAlpha pipeline results
 export const analysisRuns = pgTable(
   "analysis_runs",
