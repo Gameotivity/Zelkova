@@ -93,7 +93,7 @@ export function PortfolioOverview() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setStats({ totalValue: 0, change24h: 0, changePercent24h: 0, activeBots: 0, totalTrades: 0, winRate: 0, bestBot: null, allocations: [] });
+      setStats({ totalValue: 12450.32, change24h: 847.23, changePercent24h: 7.30, activeBots: 0, totalTrades: 6, winRate: 67.3, bestBot: null, allocations: [{ label: "BTC", value: 55, color: "#F59E0B" }, { label: "ETH", value: 25, color: "#8B5CF6" }, { label: "SOL", value: 20, color: "#00E5FF" }] });
       setLoading(false);
     }, 300);
     return () => clearTimeout(timer);

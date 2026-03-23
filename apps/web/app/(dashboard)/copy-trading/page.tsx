@@ -230,7 +230,7 @@ export default function CopyTradingPage() {
                 )}
 
                 {/* CTA */}
-                <button className="w-full rounded-lg bg-[#00E5FF]/10 py-2.5 text-sm font-semibold text-[#00E5FF] transition-all hover:bg-[#00E5FF]/20">
+                <button onClick={() => alert("Connect your wallet first to start copy trading")} className="w-full rounded-lg bg-[#00E5FF]/10 py-2.5 text-sm font-semibold text-[#00E5FF] transition-all hover:bg-[#00E5FF]/20">
                   Copy This Trader
                 </button>
               </div>

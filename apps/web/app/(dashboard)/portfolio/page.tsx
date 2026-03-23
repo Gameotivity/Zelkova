@@ -49,9 +49,9 @@ const DEMO_SUMMARY: AccountSummary = {
 };
 
 const DEMO_POSITIONS: Position[] = [
-  { coin: "BTC", size: "0.15", entryPrice: "67420.50", unrealizedPnl: "523.40", liquidationPrice: "52100.00", leverage: 3, leverageType: "cross", marginUsed: "1500.00", positionValue: "10113.08", returnOnEquity: "0.349", maxLeverage: 50 },
-  { coin: "ETH", size: "-2.5", entryPrice: "3845.20", unrealizedPnl: "-142.30", liquidationPrice: "4280.00", leverage: 5, leverageType: "isolated", marginUsed: "1923.10", positionValue: "9612.50", returnOnEquity: "-0.074", maxLeverage: 50 },
-  { coin: "SOL", size: "50", entryPrice: "148.30", unrealizedPnl: "466.13", liquidationPrice: "98.20", leverage: 2, leverageType: "cross", marginUsed: "817.05", positionValue: "7415.00", returnOnEquity: "0.571", maxLeverage: 20 },
+  { coin: "BTC", size: "0.15", entryPrice: "67420.50", unrealizedPnl: "523.40", liquidationPrice: "52100.00", leverage: 3, leverageType: "cross", marginUsed: "1500.00", positionValue: "10200.00", returnOnEquity: "0.349", maxLeverage: 50 },
+  { coin: "ETH", size: "-2.5", entryPrice: "2045.20", unrealizedPnl: "-142.30", liquidationPrice: "2280.00", leverage: 5, leverageType: "isolated", marginUsed: "1023.10", positionValue: "5113.00", returnOnEquity: "-0.139", maxLeverage: 50 },
+  { coin: "SOL", size: "50", entryPrice: "82.30", unrealizedPnl: "466.13", liquidationPrice: "54.20", leverage: 2, leverageType: "cross", marginUsed: "717.05", positionValue: "4300.00", returnOnEquity: "0.650", maxLeverage: 20 },
 ];
 
 export default function PortfolioPage() {
@@ -126,9 +126,9 @@ export default function PortfolioPage() {
                   <th className="px-6 py-3 font-medium text-right">Size</th>
                   <th className="px-6 py-3 font-medium text-right">Entry Price</th>
                   <th className="px-6 py-3 font-medium text-right">Leverage</th>
-                  <th className="px-6 py-3 font-medium text-right">Margin</th>
+                  <th className="hidden md:table-cell px-6 py-3 font-medium text-right">Margin</th>
                   <th className="px-6 py-3 font-medium text-right">Unrealized P&L</th>
-                  <th className="px-6 py-3 font-medium text-right">ROE</th>
+                  <th className="hidden md:table-cell px-6 py-3 font-medium text-right">ROE</th>
                   <th className="px-6 py-3 font-medium text-right">Liq. Price</th>
                 </tr>
               </thead>
@@ -155,11 +155,11 @@ export default function PortfolioPage() {
                           {pos.leverage}x {pos.leverageType === "cross" ? "Cross" : "Iso"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-[#94A3B8]">{formatUsd(pos.marginUsed)}</td>
+                      <td className="hidden md:table-cell px-6 py-4 text-right font-mono text-[#94A3B8]">{formatUsd(pos.marginUsed)}</td>
                       <td className={cn("px-6 py-4 text-right font-mono font-bold", pnl >= 0 ? "text-[#10B981]" : "text-[#F43F5E]")}>
                         {pnl >= 0 ? "+" : ""}{formatUsd(pos.unrealizedPnl)}
                       </td>
-                      <td className={cn("px-6 py-4 text-right font-mono", roe >= 0 ? "text-[#10B981]" : "text-[#F43F5E]")}>
+                      <td className={cn("hidden md:table-cell px-6 py-4 text-right font-mono", roe >= 0 ? "text-[#10B981]" : "text-[#F43F5E]")}>
                         {formatPct(pos.returnOnEquity)}
                       </td>
                       <td className="px-6 py-4 text-right font-mono text-[#F59E0B]">{formatUsd(pos.liquidationPrice)}</td>

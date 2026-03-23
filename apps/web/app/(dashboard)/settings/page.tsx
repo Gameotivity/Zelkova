@@ -61,7 +61,7 @@ export default function SettingsPage() {
           ...prev, name: data.user?.name || "", email: data.user?.email || "",
           username: data.profile?.username || "", displayName: data.profile?.displayName || "",
           bio: data.profile?.bio || "", country: data.profile?.country || "",
-          twitter: data.profile?.twitter || "", telegram: data.profile?.telegram || "",
+          twitter: data.profile?.twitter || "", telegram: (data.profile?.telegram && data.profile.telegram !== "undefined" && data.profile.telegram !== "null") ? data.profile.telegram : "",
           website: data.profile?.website || "", tradingExperience: data.profile?.tradingExperience || "beginner",
           favoriteAssets: data.profile?.favoriteAssets || [],
           isPublic: data.profile?.isPublic ?? true, showOnLeaderboard: data.profile?.showOnLeaderboard ?? true,
@@ -100,7 +100,12 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-[#F8FAFC]">Settings</h1>
           <p className="mt-1 text-sm text-[#94A3B8]">Manage your profile, security, and preferences</p>
         </div>
-        <SaveIndicator status={saveStatus} />
+        <div className="flex items-center gap-3">
+          <SaveIndicator status={saveStatus} />
+          <button onClick={() => autoSave()} className="rounded-xl bg-[#00E5FF] px-5 py-2.5 text-sm font-bold text-[#06080E] transition-all hover:shadow-lg hover:shadow-[#00E5FF]/20">
+            Save Changes
+          </button>
+        </div>
       </div>
       <div className="mb-6 flex gap-1 rounded-xl border border-[#1E293B] bg-[#0F1629] p-1">
         {TABS.map((tab) => (
@@ -128,8 +133,7 @@ export default function SettingsPage() {
 }
 
 function SaveIndicator({ status }: { status: string }) {
-  if (status === "idle") return null;
-  const cfg = { saving: { text: "Saving...", bg: "bg-[#F59E0B]/10 text-[#F59E0B]" }, saved: { text: "Saved", bg: "bg-[#10B981]/10 text-[#10B981]" }, error: { text: "Failed", bg: "bg-[#F43F5E]/10 text-[#F43F5E]" } }[status] ?? { text: "", bg: "" };
+  const cfg = { idle: { text: "All changes saved", bg: "bg-[#1A2340] text-[#94A3B8]" }, saving: { text: "Saving...", bg: "bg-[#F59E0B]/10 text-[#F59E0B]" }, saved: { text: "Saved", bg: "bg-[#10B981]/10 text-[#10B981]" }, error: { text: "Failed", bg: "bg-[#F43F5E]/10 text-[#F43F5E]" } }[status] ?? { text: "", bg: "" };
   return (
     <span className={cn("flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all", cfg.bg)}>
       {status === "saving" && <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}

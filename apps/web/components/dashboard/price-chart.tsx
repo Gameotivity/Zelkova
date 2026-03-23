@@ -26,7 +26,7 @@ const OHLCDisplay = React.memo(function OHLCDisplay({ candle }: { candle: Candle
       <span className="text-text-muted">H <span className="font-mono text-success">{candle.high.toLocaleString()}</span></span>
       <span className="text-text-muted">L <span className="font-mono text-danger">{candle.low.toLocaleString()}</span></span>
       <span className="text-text-muted">C <span className="font-mono text-text-body">{candle.close.toLocaleString()}</span></span>
-      <span className="text-text-muted">V <span className="font-mono text-accent-secondary">{(candle.volume / 1000).toFixed(1)}K</span></span>
+      <span className="text-text-muted">V <span className="font-mono text-accent-secondary">{candle.volume > 0 ? (candle.volume >= 1_000_000 ? `${(candle.volume / 1_000_000).toFixed(1)}M` : candle.volume >= 1000 ? `${(candle.volume / 1000).toFixed(1)}K` : candle.volume.toFixed(0)) : "N/A"}</span></span>
     </div>
   );
 });

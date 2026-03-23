@@ -25,18 +25,32 @@ function timeAgo(date: string): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
+function generateReferralCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return `ZELK-${code}`;
+}
+
 export default function ReferralsPage() {
   const [data, setData] = useState<ReferralData | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [clientCode, setClientCode] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/referral");
-      if (res.ok) setData(await res.json());
+      if (res.ok) {
+        const result = await res.json();
+        if (result.code === "ZELK-XXXX" || !result.code) {
+          if (!clientCode) setClientCode(generateReferralCode());
+          result.code = clientCode ?? generateReferralCode();
+        }
+        setData(result);
+      }
     } catch { /* silent */ }
     setLoading(false);
-  }, []);
+  }, [clientCode]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -66,7 +80,7 @@ export default function ReferralsPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-[#00E5FF]">Your Referral Code</p>
           <div className="mt-4 flex items-center gap-3">
             <span className="rounded-xl bg-[#06080E] px-6 py-3 font-mono text-2xl font-black tracking-widest text-[#F8FAFC]">
-              {data?.code || "ZELK-XXXX"}
+              {data?.code || clientCode || "Loading..."}
             </span>
             <button onClick={handleCopy}
               className="rounded-xl bg-[#00E5FF]/10 px-5 py-3 text-sm font-bold text-[#00E5FF] transition-all hover:bg-[#00E5FF]/20">

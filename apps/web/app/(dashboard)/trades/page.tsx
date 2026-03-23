@@ -135,7 +135,7 @@ export default function TradesPage() {
                 <th className="px-6 py-3 font-medium">Type</th>
                 <th className="px-6 py-3 font-medium text-right">Price</th>
                 <th className="px-6 py-3 font-medium text-right">Qty</th>
-                <th className="px-6 py-3 font-medium text-right">Fee</th>
+                <th className="hidden md:table-cell px-6 py-3 font-medium text-right">Fee</th>
                 <th className="px-6 py-3 font-medium text-right">P&L</th>
                 <th className="px-6 py-3 font-medium text-right">Status</th>
               </tr>
@@ -162,7 +162,7 @@ export default function TradesPage() {
                     <td className="px-6 py-4 text-xs text-[#94A3B8]">{trade.type}</td>
                     <td className="px-6 py-4 text-right font-mono text-[#E2E8F0]">{formatUsd(trade.price)}</td>
                     <td className="px-6 py-4 text-right font-mono text-[#E2E8F0]">{trade.quantity}</td>
-                    <td className="px-6 py-4 text-right font-mono text-[#475569]">{trade.fee != null ? formatUsd(trade.fee) : "—"}</td>
+                    <td className="hidden md:table-cell px-6 py-4 text-right font-mono text-[#475569]">{trade.fee != null ? formatUsd(trade.fee) : "—"}</td>
                     <td className={cn("px-6 py-4 text-right font-mono font-bold",
                       trade.pnl == null ? "text-[#475569]" : trade.pnl >= 0 ? "text-[#10B981]" : "text-[#F43F5E]")}>
                       {trade.pnl != null ? `${trade.pnl >= 0 ? "+" : ""}${formatUsd(trade.pnl)}` : "—"}

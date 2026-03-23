@@ -99,6 +99,7 @@ export default function PricingPage() {
   const [mounted, setMounted] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [proUsers, setProUsers] = useState(847);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
@@ -121,11 +122,27 @@ export default function PricingPage() {
             <Link href="/#security" className="text-sm text-[#94A3B8] hover:text-white">Security</Link>
             <Link href="/pricing" className="text-sm text-[#00E5FF] font-semibold">Pricing</Link>
           </div>
-          <Link href="/dashboard" className="flex items-center gap-2 rounded-lg bg-[#00E5FF] px-5 py-2 text-sm font-bold text-[#06080E] hover:shadow-lg hover:shadow-[#00E5FF]/25 hover:-translate-y-0.5 transition-all">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" /></svg>
-            Connect Wallet
-          </Link>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileNavOpen(!mobileNavOpen)} className="flex h-10 w-10 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-white/10 hover:text-white md:hidden" aria-label="Toggle menu">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>{mobileNavOpen ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />}</svg>
+            </button>
+            <Link href="/dashboard" className="hidden items-center gap-2 rounded-lg bg-[#00E5FF] px-5 py-2 text-sm font-bold text-[#06080E] hover:shadow-lg hover:shadow-[#00E5FF]/25 hover:-translate-y-0.5 transition-all sm:flex">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" /></svg>
+              Connect Wallet
+            </Link>
+          </div>
         </div>
+        {mobileNavOpen && (
+          <div className="border-t border-white/10 bg-[#06080E]/95 backdrop-blur-2xl md:hidden">
+            <div className="flex flex-col gap-1 px-6 py-4">
+              <Link href="/#pipeline" onClick={() => setMobileNavOpen(false)} className="rounded-lg px-4 py-3 text-sm text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-white">How It Works</Link>
+              <Link href="/#performance" onClick={() => setMobileNavOpen(false)} className="rounded-lg px-4 py-3 text-sm text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-white">Performance</Link>
+              <Link href="/#security" onClick={() => setMobileNavOpen(false)} className="rounded-lg px-4 py-3 text-sm text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-white">Security</Link>
+              <Link href="/pricing" onClick={() => setMobileNavOpen(false)} className="rounded-lg px-4 py-3 text-sm font-semibold text-[#00E5FF] transition-colors hover:bg-white/5">Pricing</Link>
+              <Link href="/dashboard" onClick={() => setMobileNavOpen(false)} className="mt-2 rounded-lg bg-[#00E5FF] px-4 py-3 text-center text-sm font-bold text-[#06080E]">Connect Wallet</Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero */}
@@ -261,10 +278,10 @@ export default function PricingPage() {
                 <span className="text-2xl font-black text-[#00E5FF]">2</span>
               </div>
               <h3 className="font-bold text-white">Trade Profits</h3>
-              <p className="mt-2 text-sm text-[#94A3B8]">BTC goes up 5%. Your $8,500 position earns profit. Builder fee (0.05%) goes to us automatically.</p>
+              <p className="mt-2 text-sm text-[#94A3B8]">BTC goes up 5%. Your position earns profit. Performance fee (15%) applied on profits.</p>
               <div className="mt-4 rounded-lg bg-[#06080E] p-3 font-mono text-xs">
                 <span className="text-[#94A3B8]">Gain:</span> <span className="text-[#10B981]">+$425</span><br />
-                <span className="text-[#94A3B8]">Builder fee:</span> <span className="text-[#F59E0B]">$4.25</span>
+                <span className="text-[#94A3B8]">Fee (15%):</span> <span className="text-[#F59E0B]">$63.75</span>
               </div>
             </AnimatedCard>
 
@@ -273,9 +290,11 @@ export default function PricingPage() {
                 <span className="text-2xl font-black text-[#8B5CF6]">3</span>
               </div>
               <h3 className="font-bold text-white">You Keep the Rest</h3>
-              <p className="mt-2 text-sm text-[#94A3B8]">You keep your profit. Fee is embedded in position sizing — no invoices, no transfers, fully automatic.</p>
+              <p className="mt-2 text-sm text-[#94A3B8]">You keep your profit minus the performance fee. If the trade loses, you pay nothing.</p>
               <div className="mt-4 rounded-lg bg-[#06080E] p-3 font-mono text-xs">
-                <span className="text-[#94A3B8]">You keep:</span> <span className="text-[#10B981] font-bold">$425</span><br />
+                <span className="text-[#94A3B8]">Your profit:</span> <span className="text-[#10B981] font-bold">$425</span><br />
+                <span className="text-[#94A3B8]">Fee (15%):</span> <span className="text-[#F59E0B]">$63.75</span><br />
+                <span className="text-[#94A3B8]">You keep:</span> <span className="text-[#10B981] font-bold">$361.25</span><br />
                 <span className="text-[#94A3B8]">If loss:</span> <span className="text-white">You pay $0</span>
               </div>
             </AnimatedCard>
@@ -404,9 +423,10 @@ export default function PricingPage() {
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <div className="flex items-center gap-1"><span className="text-lg font-black text-[#00E5FF]">Zelkora</span><span className="text-sm text-[#94A3B8]">.ai</span></div>
             <div className="flex gap-6">
-              <a href="#" className="text-xs text-[#475569] hover:text-[#94A3B8]">Twitter</a>
-              <a href="#" className="text-xs text-[#475569] hover:text-[#94A3B8]">Discord</a>
-              <a href="#" className="text-xs text-[#475569] hover:text-[#94A3B8]">Telegram</a>
+              <a href="https://twitter.com/zelkora_ai" target="_blank" rel="noopener noreferrer" className="text-xs text-[#475569] hover:text-[#94A3B8]">Twitter</a>
+              <a href="https://discord.gg/zelkora" target="_blank" rel="noopener noreferrer" className="text-xs text-[#475569] hover:text-[#94A3B8]">Discord</a>
+              <a href="https://t.me/zelkora" target="_blank" rel="noopener noreferrer" className="text-xs text-[#475569] hover:text-[#94A3B8]">Telegram</a>
+              <a href="https://docs.zelkora.ai" target="_blank" rel="noopener noreferrer" className="text-xs text-[#475569] hover:text-[#94A3B8]">Docs</a>
             </div>
             <p className="text-xs text-[#475569]">&copy; 2026 Zelkora. All rights reserved.</p>
           </div>

@@ -84,7 +84,7 @@ export default function LeaderboardPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-[#F8FAFC]">Global Leaderboard</h1>
-            <p className="text-sm text-[#94A3B8]">{displayTotal} traders competing worldwide</p>
+            <p className="text-sm text-[#94A3B8]">{displayTotal} {displayTotal === 1 ? "trader" : "traders"} competing worldwide</p>
           </div>
         </div>
       </div>
