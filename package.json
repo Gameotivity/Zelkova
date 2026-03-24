@@ -18,9 +18,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "devDependencies": {
-    "turbo": "^2.4.0",
     "prettier": "^3.4.0",
-    "prettier-plugin-tailwindcss": "^0.6.0"
+    "prettier-plugin-tailwindcss": "^0.6.0",
+    "turbo": "^2.4.0"
   },
   "packageManager": "npm@10.8.2",
   "engines": {
