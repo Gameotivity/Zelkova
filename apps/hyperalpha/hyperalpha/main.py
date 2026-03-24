@@ -221,8 +221,9 @@ def run_api_server():
 def main():
     parser = argparse.ArgumentParser(description="HyperAlpha — AI Trading Desk")
     parser.add_argument("--ticker", type=str, default="BTC", help="Ticker(s) to analyze, comma-separated")
-    parser.add_argument("--mode", type=str, default="recommend", choices=["recommend", "loop", "server"])
-    parser.add_argument("--interval", type=int, default=3600, help="Loop interval in seconds")
+    parser.add_argument("--mode", type=str, default="recommend", choices=["recommend", "loop", "server", "demo", "agent", "crew"])
+    parser.add_argument("--interval", type=int, default=300, help="Loop interval in seconds (default 300 for demo/agent)")
+    parser.add_argument("--testnet", action="store_true", default=True, help="Use testnet (default: True)")
     args = parser.parse_args()
 
     tickers = [t.strip().upper() for t in args.ticker.split(",")]
@@ -231,6 +232,26 @@ def main():
         asyncio.run(run_single_analysis(tickers[0]))
     elif args.mode == "loop":
         asyncio.run(run_multi_ticker_loop(tickers, args.interval))
+    elif args.mode == "demo":
+        from hyperalpha.paper_trader import run_paper_trading
+        asyncio.run(run_paper_trading(tickers, args.interval))
+    elif args.mode == "agent":
+        from hyperalpha.execution.agent_loop import AutonomousAgent
+        agent = AutonomousAgent(tickers, args.interval, use_testnet=args.testnet)
+        asyncio.run(agent.run())
+    elif args.mode == "crew":
+        from hyperalpha.crew import HyperAlphaCrew, format_crew_report
+        async def run_crew(t: str):
+            crew = HyperAlphaCrew()
+            try:
+                print(f"\n  HYPERALPHA v2 — CrewAI Mode")
+                print(f"  8 agents running in parallel for {t}...\n")
+                state = await crew.analyze(t)
+                print(format_crew_report(state))
+                return state
+            finally:
+                await crew.close()
+        asyncio.run(run_crew(tickers[0]))
     elif args.mode == "server":
         run_api_server()
 

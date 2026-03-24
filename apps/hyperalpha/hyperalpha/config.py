@@ -1,59 +1,78 @@
 """
 HyperAlpha Configuration — Production-grade settings with validation.
 """
-from pydantic_settings import BaseSettings
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 from typing import Optional
 
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(_ENV_FILE),
+        env_file_encoding="utf-8",
+    )
+
     # Environment
-    environment: str = Field("dev", env="ENVIRONMENT")
+    environment: str = "dev"
 
     # LLM
-    anthropic_api_key: str = Field("", env="ANTHROPIC_API_KEY")
-    deep_think_model: str = Field("claude-sonnet-4-20250514", env="DEEP_THINK_MODEL")
-    quick_think_model: str = Field("claude-haiku-4-5-20251001", env="QUICK_THINK_MODEL")
-    llm_timeout_seconds: int = Field(30, env="LLM_TIMEOUT_SECONDS")
-    llm_max_retries: int = Field(2, env="LLM_MAX_RETRIES")
+    anthropic_api_key: str = ""
+    deep_think_model: str = "claude-sonnet-4-20250514"
+    quick_think_model: str = "claude-haiku-4-5-20251001"
+    llm_timeout_seconds: int = 30
+    llm_max_retries: int = 2
 
     # Hyperliquid
-    hl_account_address: str = Field("", env="HL_ACCOUNT_ADDRESS")
-    hl_secret_key: str = Field("", env="HL_SECRET_KEY")
-    hl_use_testnet: bool = Field(False, env="HL_USE_TESTNET")
+    hl_account_address: str = ""
+    hl_secret_key: str = ""
+    hl_use_testnet: bool = False
 
     # Data Sources
-    twitter_bearer_token: Optional[str] = Field(None, env="TWITTER_BEARER_TOKEN")
-    coingecko_api_key: Optional[str] = Field(None, env="COINGECKO_API_KEY")
+    twitter_bearer_token: Optional[str] = None
+    coingecko_api_key: Optional[str] = None
 
     # Database
-    postgres_url: str = Field("sqlite+aiosqlite:///hyperalpha.db", env="POSTGRES_URL")
-    redis_url: str = Field("redis://localhost:6379/0", env="REDIS_URL")
+    postgres_url: str = "sqlite+aiosqlite:///hyperalpha.db"
+    redis_url: str = "redis://localhost:6379/0"
 
     # Telegram
-    telegram_bot_token: Optional[str] = Field(None, env="TELEGRAM_BOT_TOKEN")
-    telegram_chat_id: Optional[str] = Field(None, env="TELEGRAM_CHAT_ID")
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
 
     # Risk Management — conservative defaults per CLAUDE.md
-    max_position_size_usd: float = Field(1000, env="MAX_POSITION_SIZE_USD")
-    max_portfolio_drawdown_pct: float = Field(10, env="MAX_PORTFOLIO_DRAWDOWN_PCT")
-    max_single_trade_risk_pct: float = Field(2, env="MAX_SINGLE_TRADE_RISK_PCT")
-    max_correlation_exposure: float = Field(0.7, env="MAX_CORRELATION_EXPOSURE")
-    max_leverage: float = Field(3.0, env="MAX_LEVERAGE")
+    max_position_size_usd: float = 1000
+    max_portfolio_drawdown_pct: float = 10
+    max_single_trade_risk_pct: float = 2
+    max_correlation_exposure: float = 0.7
+    max_leverage: float = 3.0
 
     # Agent Config
-    max_debate_rounds: int = Field(2, env="MAX_DEBATE_ROUNDS")
-    confidence_threshold: float = Field(0.5, env="CONFIDENCE_THRESHOLD")
+    max_debate_rounds: int = 2
+    confidence_threshold: float = 0.5
 
     # Network
-    hl_request_timeout: int = Field(15, env="HL_REQUEST_TIMEOUT")
-    hl_max_retries: int = Field(3, env="HL_MAX_RETRIES")
-    pipeline_timeout_seconds: int = Field(300, env="PIPELINE_TIMEOUT_SECONDS")
+    hl_request_timeout: int = 15
+    hl_max_retries: int = 3
+    pipeline_timeout_seconds: int = 300
 
     # Cache TTLs (seconds)
-    cache_mids_ttl: int = Field(10, env="CACHE_MIDS_TTL")
-    cache_funding_ttl: int = Field(60, env="CACHE_FUNDING_TTL")
-    cache_snapshot_ttl: int = Field(30, env="CACHE_SNAPSHOT_TTL")
+    cache_mids_ttl: int = 10
+    cache_funding_ttl: int = 60
+    cache_snapshot_ttl: int = 30
+
+    # CrewAI
+    crew_verbose: bool = True
+    crew_max_rpm: int = 10  # rate limit for LLM calls (keep under API limits)
+
+    # RAG
+    rag_vector_store_path: str = str(Path(__file__).resolve().parent / "rag" / "chroma_db")
+    rag_collection_name: str = "hyperalpha_knowledge"
+    rag_chunk_size: int = 500
+    rag_chunk_overlap: int = 50
 
     @field_validator("max_leverage")
     @classmethod
@@ -85,10 +104,6 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "prod"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 settings = Settings()

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
+import HeroAgentAnimation from "@/components/marketing/hero-agent-animation";
 
 // ═══════════════════════════════════════
 // SVG Icon Components (no emojis)
@@ -172,8 +173,8 @@ function SignalFlashes() {
 }
 
 function FOMOBanner() {
-  const [online, setOnline] = useState(847);
-  const [spots, setSpots] = useState(23);
+  const [online, setOnline] = useState(612);
+  const [spots, setSpots] = useState(18);
   const [deployed, setDeployed] = useState(0);
 
   useEffect(() => {
@@ -433,6 +434,73 @@ function StatCard({ label, value, suffix, prefix }: { label: string; value: numb
   );
 }
 
+/** Stat card that counts up, ticks in real-time, and persists across refreshes */
+function LiveStatCard({ label, baseValue, suffix, prefix, tickRate, tickAmount, storageKey }: {
+  label: string; baseValue: number; suffix?: string; prefix?: string;
+  tickRate?: number; tickAmount?: number; storageKey?: string;
+}) {
+  const key = storageKey || `zelkora_stat_${label.replace(/\s+/g, '_').toLowerCase()}`;
+  const { ref, visible } = useInView();
+
+  // Start with baseValue for SSR, then load persisted value after mount
+  const [startValue, setStartValue] = useState(baseValue);
+  const [mounted, setMounted] = useState(false);
+  const [live, setLive] = useState(0);
+  const [doneCountUp, setDoneCountUp] = useState(false);
+
+  // After mount: load persisted value from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const { value, timestamp } = JSON.parse(stored);
+        if (tickRate && tickAmount) {
+          const elapsed = Date.now() - timestamp;
+          const ticks = Math.floor(elapsed / tickRate);
+          const accumulated = value + ticks * tickAmount;
+          setStartValue(accumulated);
+          localStorage.setItem(key, JSON.stringify({ value: accumulated, timestamp: Date.now() }));
+        } else {
+          setStartValue(value);
+        }
+      } else {
+        localStorage.setItem(key, JSON.stringify({ value: baseValue, timestamp: Date.now() }));
+      }
+    } catch { /* ignore */ }
+    setMounted(true);
+  }, [key, baseValue, tickRate, tickAmount]);
+
+  const count = useCountUp(mounted ? startValue : baseValue, 2000, 0, visible && mounted);
+
+  useEffect(() => {
+    if (mounted && count >= startValue && !doneCountUp) setDoneCountUp(true);
+  }, [count, startValue, mounted, doneCountUp]);
+
+  useEffect(() => {
+    if (!doneCountUp || !tickRate) return;
+    const iv = setInterval(() => {
+      setLive(prev => {
+        const next = prev + (tickAmount || 1);
+        try {
+          localStorage.setItem(key, JSON.stringify({ value: startValue + next, timestamp: Date.now() }));
+        } catch { /* ignore */ }
+        return next;
+      });
+    }, tickRate);
+    return () => clearInterval(iv);
+  }, [doneCountUp, tickRate, tickAmount, key, startValue]);
+
+  const display = doneCountUp ? startValue + live : count;
+  return (
+    <div ref={ref} className={cn("text-center transition-all duration-700", visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6")}>
+      <p className="font-mono text-4xl font-black tabular-nums text-white md:text-5xl" suppressHydrationWarning>
+        {prefix}{display.toLocaleString()}{suffix}
+      </p>
+      <p className="mt-2 text-sm font-medium text-[#94A3B8]">{label}</p>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════
 // Nav
 // ═══════════════════════════════════════
@@ -546,11 +614,21 @@ export default function HomePage() {
           </div>
 
           <div className="mx-auto mt-20 grid max-w-4xl grid-cols-2 gap-8 md:grid-cols-4">
-            <StatCard label="Active Traders" value={12847} />
-            <StatCard label="Total Volume" value={2400000} prefix="$" />
-            <StatCard label="Avg Win Rate" value={73} suffix="%" />
-            <StatCard label="Uptime" value={99} suffix=".99%" />
+            <LiveStatCard label="Active Traders" baseValue={600} tickRate={8000} tickAmount={1} />
+            <LiveStatCard label="Profit Generated" baseValue={815000} prefix="$" tickRate={3000} tickAmount={127} />
+            <LiveStatCard label="Win Rate" baseValue={95} suffix="%" />
+            <div className="text-center">
+              <p className="font-mono text-4xl font-black tabular-nums text-white md:text-5xl">100%</p>
+              <p className="mt-2 text-sm font-medium text-[#94A3B8]">Uptime</p>
+            </div>
           </div>
+        </div>
+      </section>
+
+      {/* ═══ AI AGENT ANIMATION ═══ */}
+      <section className="border-t border-white/5">
+        <div className="mx-auto max-w-6xl px-6">
+          <HeroAgentAnimation />
         </div>
       </section>
 
@@ -559,8 +637,8 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-6">
           <div ref={pipelineSection.ref} className={cn("mb-16 text-center transition-all duration-700", pipelineSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10")}>
             <p className="text-sm font-bold uppercase tracking-widest text-[#00E5FF]">The Engine</p>
-            <h2 className="mt-3 text-4xl font-black md:text-5xl">7 Layers of AI. <span className="text-[#00E5FF]">One Decision.</span></h2>
-            <p className="mx-auto mt-4 max-w-2xl text-[#94A3B8]">Every trade passes through 4 analyst agents, adversarial debate, stat arb engine, and risk manager with veto power.</p>
+            <h2 className="mt-3 text-4xl font-black md:text-5xl">8 AI Agents. <span className="text-[#00E5FF]">One Decision.</span></h2>
+            <p className="mx-auto mt-4 max-w-2xl text-[#94A3B8]">Every trade is analyzed simultaneously by 8 specialized AI agents, then synthesized by a Super Agent into one clear action.</p>
           </div>
           <AnimatedPipeline />
           <div className="mt-16 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -591,10 +669,10 @@ export default function HomePage() {
             <h2 className="mt-3 text-4xl font-black md:text-5xl">AI Calls. <span className="text-[#10B981]">Real Results.</span></h2>
           </div>
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-            <StatCard label="Total P&L Generated" value={847000} prefix="+$" />
-            <StatCard label="Best Single Trade" value={23400} prefix="+$" />
-            <StatCard label="Win Rate" value={73} suffix="%" />
-            <StatCard label="Sharpe Ratio" value={24} />
+            <LiveStatCard label="Total P&L Generated" baseValue={815000} prefix="+$" tickRate={3000} tickAmount={127} />
+            <LiveStatCard label="Best Single Trade" baseValue={23400} prefix="+$" tickRate={15000} tickAmount={89} />
+            <StatCard label="Win Rate" value={95} suffix="%" />
+            <StatCard label="Active Traders" value={600} prefix="+" />
           </div>
           <div className="mt-12">
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#475569]">Recent AI Calls (Live Prices)</p>

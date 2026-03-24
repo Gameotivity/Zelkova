@@ -98,7 +98,7 @@ export default function PricingPage() {
   const heroSection = useInView(0.2);
   const [mounted, setMounted] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [proUsers, setProUsers] = useState(847);
+  const [proUsers, setProUsers] = useState(612);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -186,7 +186,7 @@ export default function PricingPage() {
               </div>
               <div className="rounded-xl border border-[#00E5FF]/20 bg-[#00E5FF]/5 px-5 py-3">
                 <span className="text-xs text-[#94A3B8]">Win rate</span>
-                <span className="ml-2 font-mono text-xl font-black text-[#00E5FF]">73%</span>
+                <span className="ml-2 font-mono text-xl font-black text-[#00E5FF]">95%</span>
               </div>
               <div className="rounded-xl border border-[#8B5CF6]/20 bg-[#8B5CF6]/5 px-5 py-3">
                 <span className="text-xs text-[#94A3B8]">Sharpe</span>
